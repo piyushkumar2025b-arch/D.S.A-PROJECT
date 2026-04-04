@@ -2396,6 +2396,15 @@ Research goal: enterprise-scale autonomous agent reliability and organisational 
                 st.bar_chart(chart_data)
 
 
+    st.divider()
+    st.subheader("Archived Interface (Legacy)")
+    main_tab, issues_tab, future_tab, groq_analysis_tab = st.tabs([
+        "🔬 Research Context",
+        "⚠️ Open Research Issues",
+        "🚀 Future Directions",
+        "🤖 AI Analysis of Problems",
+    ])
+
     with main_tab:
         st.subheader("📌 Research Domain & Motivation")
         st.markdown("""
@@ -2634,21 +2643,11 @@ These represent genuine research gaps where SAAP can contribute original finding
 """, unsafe_allow_html=True)
 
         medium_term = [
-            ("Cross-agent shared memory via vector DB", """Research Question: Can agents share episodic memory across sessions without privacy leakage or memory poisoning?
-\nProposed approach: Embed agent outputs in a vector DB (e.g. pgvector) with user/org scoping. Agents retrieve semantically relevant past findings before executing. Evaluate: retrieval precision, memory growth rate, cross-user isolation.
-\nExpected contribution: First empirical evaluation of vector memory in multi-step organisational agent systems."""),
-            ("Automated decomposition quality scoring", """Research Question: How can we evaluate whether a Coordinator Agent's task decomposition is good BEFORE running the full pipeline?
-\nProposed approach: Train a scoring model on human-rated decompositions. Features: sub-task independence, coverage of goal, specificity. Use as a pre-run filter.
-\nExpected contribution: First dataset of annotated research goal decompositions; decomposition quality metric."""),
-            ("Human-in-the-loop triggering criteria", """Research Question: When should an autonomous agent pipeline pause and request human input vs. proceed autonomously?
-\nProposed approach: Uncertainty quantification on LLM agent outputs (entropy, self-consistency, abstention detection). Trigger human review when confidence < threshold.
-\nExpected contribution: Novel triggering policy evaluated across 1000+ agent runs."""),
-            ("Multi-agent conflict resolution", """Research Question: When Literature Agent and Data Agent produce contradictory findings, how should the Synthesizer resolve them?
-\nProposed approach: Adversarial debate protocol — agents argue their positions; a judge LLM scores arguments. Compare vs. naive averaging and majority vote.
-\nExpected contribution: First adversarial debate protocol evaluated for research synthesis tasks."""),
-            ("Agent cost routing", """Research Question: Can we dynamically route sub-tasks to cheaper models (GPT-3.5, Llama 8B) when complexity is low, reserving expensive models for hard cases?
-\nProposed approach: Task complexity classifier (fast, cheap). Route low-complexity tasks to small models. Evaluate cost reduction vs. quality degradation.
-\nExpected contribution: Cost-quality Pareto frontier for multi-agent research systems."""),
+            ("Cross-agent shared memory via vector DB", "Research Question: Can agents share episodic memory across sessions without privacy leakage or memory poisoning?\\nProposed approach: Embed agent outputs in a vector DB (e.g. pgvector) with user/org scoping. Agents retrieve semantically relevant past findings before executing. Evaluate: retrieval precision, memory growth rate, cross-user isolation.\\nExpected contribution: First empirical evaluation of vector memory in multi-step organisational agent systems."),
+            ("Automated decomposition quality scoring", "Research Question: How can we evaluate whether a Coordinator Agent's task decomposition is good BEFORE running the full pipeline?\\nProposed approach: Train a scoring model on human-rated decompositions. Features: sub-task independence, coverage of goal, specificity. Use as a pre-run filter.\\nExpected contribution: First dataset of annotated research goal decompositions; decomposition quality metric."),
+            ("Human-in-the-loop triggering criteria", "Research Question: When should an autonomous agent pipeline pause and request human input vs. proceed autonomously?\\nProposed approach: Uncertainty quantification on LLM agent outputs (entropy, self-consistency, abstention detection). Trigger human review when confidence < threshold.\\nExpected contribution: Novel triggering policy evaluated across 1000+ agent runs."),
+            ("Multi-agent conflict resolution", "Research Question: When Literature Agent and Data Agent produce contradictory findings, how should the Synthesizer resolve them?\\nProposed approach: Adversarial debate protocol — agents argue their positions; a judge LLM scores arguments. Compare vs. naive averaging and majority vote.\\nExpected contribution: First adversarial debate protocol evaluated for research synthesis tasks."),
+            ("Agent cost routing", "Research Question: Can we dynamically route sub-tasks to cheaper models (GPT-3.5, Llama 8B) when complexity is low, reserving expensive models for hard cases?\\nProposed approach: Task complexity classifier (fast, cheap). Route low-complexity tasks to small models. Evaluate cost reduction vs. quality degradation.\\nExpected contribution: Cost-quality Pareto frontier for multi-agent research systems."),
         ]
         for title, desc in medium_term:
             with st.expander(f"🔬 {title}"):
@@ -2689,3 +2688,4 @@ These are hard open problems that require sustained research programs.
         ]
         import pandas as pd
         st.dataframe(pd.DataFrame(integrations), use_container_width=True, hide_index=True)
+
