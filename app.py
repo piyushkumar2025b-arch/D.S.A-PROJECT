@@ -3359,6 +3359,28 @@ def init_hub_db():
     );
     """)
 
+    # Migration for newly added columns if table already existed
+    def add_col(table, col, definition):
+        try:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+        except sqlite3.OperationalError:
+            pass
+
+    add_col("hub_members", "avatar_color", "TEXT DEFAULT '#3b82f6'")
+    add_col("hub_members", "created_by", "TEXT DEFAULT 'admin'")
+    add_col("hub_api_connections", "display_name", "TEXT DEFAULT ''")
+    add_col("hub_api_connections", "verified_data", "TEXT DEFAULT '{}'")
+    add_col("hub_api_connections", "last_tested", "TEXT")
+    add_col("hub_org_knowledge", "tags", "TEXT DEFAULT '[]'")
+    add_col("hub_org_knowledge", "is_active", "INTEGER DEFAULT 1")
+    add_col("hub_automations", "agents_sequence", "TEXT DEFAULT '[]'")
+    add_col("hub_automations", "goal_template", "TEXT DEFAULT ''")
+    add_col("hub_automations", "use_org_data", "INTEGER DEFAULT 1")
+    add_col("hub_automations", "run_count", "INTEGER DEFAULT 0")
+    add_col("hub_automations", "last_run_at", "TEXT")
+    add_col("hub_runs", "token_usage", "TEXT DEFAULT '{}'")
+    add_col("hub_runs", "real_api_calls", "INTEGER DEFAULT 0")
+
     # Seed admin account (email: admin@org.ai, password: admin123)
     import hashlib
     admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
