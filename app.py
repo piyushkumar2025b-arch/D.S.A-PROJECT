@@ -3282,713 +3282,950 @@ in what order, with what expected contributions.
                             st.error(f"Analysis failed: {e}")
 
 
+
 # ══════════════════════════════════════════════════════════════════════════════
 #   SECTION 5 — LIVE AGENT HUB  🔥
-#   Real API connections · Feedable Org Database · Live Automations
+#   Real member login · Real API keys · Real data fetch · Real database
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Extended DB tables for Section 5 ─────────────────────────────────────────
+# ─── Section 5 Database Setup ─────────────────────────────────────────────────
 def init_hub_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.executescript("""
-    CREATE TABLE IF NOT EXISTS hub_api_keys (
-        id TEXT PRIMARY KEY,
-        service TEXT NOT NULL UNIQUE,
-        api_key TEXT,
-        extra_config TEXT DEFAULT '{}',
-        connected INTEGER DEFAULT 0,
-        last_tested TEXT,
-        added_by TEXT DEFAULT 'admin',
-        note TEXT DEFAULT '',
-        created_at TEXT DEFAULT (datetime('now'))
+    CREATE TABLE IF NOT EXISTS hub_members (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        email       TEXT UNIQUE NOT NULL,
+        role        TEXT DEFAULT 'member',
+        password_hash TEXT NOT NULL,
+        department  TEXT DEFAULT '',
+        permissions TEXT DEFAULT '["run","view","feed_db"]',
+        avatar_color TEXT DEFAULT '#3b82f6',
+        created_by  TEXT DEFAULT 'admin',
+        created_at  TEXT DEFAULT (datetime('now'))
     );
-    CREATE TABLE IF NOT EXISTS hub_org_data (
-        id TEXT PRIMARY KEY,
-        category TEXT NOT NULL,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        source TEXT DEFAULT 'manual',
-        added_by TEXT DEFAULT 'member',
-        tags TEXT DEFAULT '[]',
-        is_active INTEGER DEFAULT 1,
-        created_at TEXT DEFAULT (datetime('now'))
+    CREATE TABLE IF NOT EXISTS hub_api_connections (
+        id          TEXT PRIMARY KEY,
+        member_id   TEXT NOT NULL,
+        service     TEXT NOT NULL,
+        api_key     TEXT NOT NULL,
+        extra_config TEXT DEFAULT '{}',
+        display_name TEXT DEFAULT '',
+        connected   INTEGER DEFAULT 0,
+        verified_data TEXT DEFAULT '{}',
+        last_tested TEXT,
+        added_at    TEXT DEFAULT (datetime('now')),
+        UNIQUE(member_id, service)
+    );
+    CREATE TABLE IF NOT EXISTS hub_org_knowledge (
+        id          TEXT PRIMARY KEY,
+        category    TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        added_by_id TEXT NOT NULL,
+        added_by_name TEXT NOT NULL,
+        tags        TEXT DEFAULT '[]',
+        is_active   INTEGER DEFAULT 1,
+        created_at  TEXT DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS hub_automations (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        trigger_type TEXT DEFAULT 'manual',
+        id              TEXT PRIMARY KEY,
+        name            TEXT NOT NULL,
+        description     TEXT DEFAULT '',
         agents_sequence TEXT DEFAULT '[]',
-        prompt_template TEXT,
-        api_keys_used TEXT DEFAULT '[]',
-        use_org_data INTEGER DEFAULT 1,
-        status TEXT DEFAULT 'active',
-        created_by TEXT DEFAULT 'admin',
-        last_run TEXT,
-        run_count INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now'))
+        goal_template   TEXT DEFAULT '',
+        use_org_data    INTEGER DEFAULT 1,
+        created_by_id   TEXT,
+        created_by_name TEXT,
+        run_count       INTEGER DEFAULT 0,
+        last_run_at     TEXT,
+        created_at      TEXT DEFAULT (datetime('now'))
     );
-    CREATE TABLE IF NOT EXISTS hub_automation_runs (
-        id TEXT PRIMARY KEY,
-        automation_id TEXT,
+    CREATE TABLE IF NOT EXISTS hub_runs (
+        id              TEXT PRIMARY KEY,
+        automation_id   TEXT,
         automation_name TEXT,
-        goal TEXT,
-        run_by TEXT,
-        status TEXT DEFAULT 'RUNNING',
-        agent_logs TEXT DEFAULT '[]',
-        final_output TEXT,
-        token_usage TEXT DEFAULT '{}',
-        error TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS hub_members (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        role TEXT,
-        pin_hash TEXT,
-        permissions TEXT DEFAULT '["run","view"]',
-        created_at TEXT DEFAULT (datetime('now'))
+        goal            TEXT,
+        run_by_id       TEXT,
+        run_by_name     TEXT,
+        status          TEXT DEFAULT 'RUNNING',
+        agent_logs      TEXT DEFAULT '[]',
+        agent_results   TEXT DEFAULT '{}',
+        final_report    TEXT DEFAULT '',
+        token_usage     TEXT DEFAULT '{}',
+        real_api_calls  INTEGER DEFAULT 0,
+        created_at      TEXT DEFAULT (datetime('now'))
     );
     """)
 
-    # Seed default members
+    # Seed admin account (email: admin@org.ai, password: admin123)
     import hashlib
-    default_members = [
-        ("hub-mem-1", "Admin", "Owner", hashlib.sha256("1234".encode()).hexdigest(), '["run","view","admin","feed_db","manage_keys"]'),
-        ("hub-mem-2", "Team Member", "Analyst", hashlib.sha256("0000".encode()).hexdigest(), '["run","view","feed_db"]'),
-    ]
-    c.executemany("INSERT OR IGNORE INTO hub_members (id,name,role,pin_hash,permissions) VALUES (?,?,?,?,?)", default_members)
+    admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
+    c.execute("""INSERT OR IGNORE INTO hub_members
+        (id, name, email, role, password_hash, department, permissions, avatar_color)
+        VALUES (?,?,?,?,?,?,?,?)""",
+        ("hub-admin-1", "Admin", "admin@org.ai", "admin", admin_hash,
+         "Operations", '["run","view","feed_db","manage_keys","admin"]', "#ef4444"))
 
-    # Seed some org data examples
-    seed_data = [
-        ("hd-1","Company Info","Company Name","SAAP Technologies — AI-first enterprise automation company","manual","admin",'["company"]'),
-        ("hd-2","Company Info","Core Products","SAAP Platform (multi-agent AI), SAAP Research (academic), SAAP Enterprise (B2B SaaS)","manual","admin",'["company","product"]'),
-        ("hd-3","Team","Engineering Team Size","12 engineers: 4 backend, 3 frontend, 2 ML, 2 DevOps, 1 QA","manual","admin",'["team","engineering"]'),
-        ("hd-4","Strategy","Q4 OKR","1. Ship SAAP v5 with real-time agent streaming. 2. Reach 500 enterprise trials. 3. Publish 2 research papers.","manual","admin",'["okr","strategy"]'),
-        ("hd-5","Customers","Key Accounts","TechCorp (Series B, 200 seats), FinanceHub (enterprise, 500 seats), StartupXYZ (10 seats, trial)","manual","admin",'["customers","sales"]'),
+    # Seed demo member (email: demo@org.ai, password: demo123)
+    demo_hash = hashlib.sha256("demo123".encode()).hexdigest()
+    c.execute("""INSERT OR IGNORE INTO hub_members
+        (id, name, email, role, password_hash, department, permissions, avatar_color)
+        VALUES (?,?,?,?,?,?,?,?)""",
+        ("hub-demo-1", "Demo User", "demo@org.ai", "member", demo_hash,
+         "Analytics", '["run","view","feed_db"]', "#3b82f6"))
+
+    # Seed example org knowledge
+    seed_rows = [
+        ("hk-1","Company Info","Company Name",
+         "SAAP Technologies — AI-first enterprise automation platform. Founded 2023. Series A funded.",
+         "hub-admin-1","Admin",'["company"]'),
+        ("hk-2","Strategy","Current OKRs",
+         "Q4: 1) Ship SAAP v5 with streaming agents (75% done). 2) Reach 500 enterprise trials. 3) Close 3 enterprise deals >$50K ARR.",
+         "hub-admin-1","Admin",'["strategy","okr","q4"]'),
+        ("hk-3","Team","Team Structure",
+         "12 engineers (4 backend, 3 frontend, 2 ML, 2 DevOps, 1 QA). 3 sales. 2 product. 1 design. Total: 18 FTE.",
+         "hub-admin-1","Admin",'["team","hr"]'),
+        ("hk-4","Customers","Key Accounts",
+         "TechCorp (200 seats, $80K ARR, renewal Dec). FinanceHub (500 seats, $200K ARR, expanding). StartupXYZ (10 seats, trial, decision pending).",
+         "hub-admin-1","Admin",'["customers","sales"]'),
+        ("hk-5","Engineering","Tech Stack",
+         "Backend: Python/FastAPI. Frontend: React/Next.js. AI: Groq/Llama. DB: PostgreSQL + SQLite. Infra: AWS ECS. CI: GitHub Actions.",
+         "hub-admin-1","Admin",'["engineering","tech"]'),
     ]
-    c.executemany("INSERT OR IGNORE INTO hub_org_data (id,category,title,content,source,added_by,tags) VALUES (?,?,?,?,?,?,?)", seed_data)
+    c.executemany("""INSERT OR IGNORE INTO hub_org_knowledge
+        (id,category,title,content,added_by_id,added_by_name,tags) VALUES (?,?,?,?,?,?,?)""", seed_rows)
 
     # Seed default automations
-    automations = [
-        ("auto-1","Weekly Org Briefing","Full organisational intelligence briefing from all connected agents","manual",
-         '["gmail-summary","calendar-manager","slack-agent","github-agent","hubspot-agent"]',
-         "Generate a comprehensive weekly briefing for our organisation. Use the org context provided to make it highly specific and relevant.",
-         '[]', 1, "active", "admin"),
-        ("auto-2","Engineering Health Check","Daily engineering status from GitHub, Jira, and Linear","manual",
+    auto_rows = [
+        ("hauto-1","Weekly Executive Briefing",
+         "Complete org intelligence: engineering velocity, sales pipeline, team health, market signals",
+         '["github-agent","slack-agent","hubspot-agent","jira-agent","web-scraper"]',
+         "Generate a comprehensive weekly briefing covering engineering health, sales pipeline status, team communication patterns, and market intelligence. Use the org context to make it highly specific to our company.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-2","Engineering Daily Standup",
+         "GitHub PRs, Jira sprint status, Linear cycles, Slack engineering channel",
          '["github-agent","jira-agent","linear-agent","slack-agent"]',
-         "Analyse current engineering health. Flag blockers, check PR velocity, and report sprint status. Use org context for team details.",
-         '[]', 1, "active", "admin"),
-        ("auto-3","Sales Pipeline Review","CRM and revenue intelligence from HubSpot","manual",
-         '["hubspot-agent","sheets-agent","web-scraper"]',
-         "Review the sales pipeline, identify at-risk deals, and provide competitive positioning context. Use org data about our key accounts.",
-         '[]', 1, "active", "admin"),
-        ("auto-4","Market Intelligence Sweep","Competitive and market intelligence gathering","manual",
-         '["web-scraper","slack-agent","notion-agent"]',
-         "Gather the latest market signals, competitor updates, and industry news. Synthesise into actionable intelligence for the team.",
-         '[]', 0, "active", "admin"),
+         "Generate today's engineering standup report. Check PR status, sprint velocity, active blockers, and team communication. Flag any risks to delivery.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-3","Sales Pipeline Review",
+         "HubSpot deals, competitive intel, and customer health",
+         '["hubspot-agent","web-scraper","sheets-agent"]',
+         "Review the full sales pipeline. Identify at-risk deals, surface competitive threats from web intel, and provide revenue forecast. Use our key account data from org context.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-4","Knowledge Base Sync",
+         "Sync Notion docs, Slack decisions, and create structured summaries",
+         '["notion-agent","slack-agent","drive-manager"]',
+         "Scan recent Notion pages, extract decisions from Slack channels, and organise into a structured knowledge update for the team.",
+         1, "hub-admin-1", "Admin"),
     ]
     c.executemany("""INSERT OR IGNORE INTO hub_automations
-        (id,name,description,trigger_type,agents_sequence,prompt_template,api_keys_used,use_org_data,status,created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?)""", automations)
+        (id,name,description,agents_sequence,goal_template,use_org_data,created_by_id,created_by_name)
+        VALUES (?,?,?,?,?,?,?,?)""", auto_rows)
 
     conn.commit()
     conn.close()
 
 init_hub_db()
 
-# ── Hub DB helpers ────────────────────────────────────────────────────────────
-def get_hub_api_keys():
+# ─── Hub DB Helpers ────────────────────────────────────────────────────────────
+def hub_get_member_by_email(email):
     with db() as c:
-        rows = c.execute("SELECT * FROM hub_api_keys ORDER BY service").fetchall()
+        row = c.execute("SELECT * FROM hub_members WHERE email=?", (email.lower().strip(),)).fetchone()
+    return dict(row) if row else None
+
+def hub_verify_login(email, password):
+    import hashlib
+    member = hub_get_member_by_email(email)
+    if not member:
+        return None
+    ph = hashlib.sha256(password.encode()).hexdigest()
+    return member if member["password_hash"] == ph else None
+
+def hub_add_member(name, email, password, role, department, permissions, avatar_color, created_by):
+    import hashlib
+    ph = hashlib.sha256(password.encode()).hexdigest()
+    mid = str(uuid.uuid4())
+    with db() as c:
+        c.execute("""INSERT INTO hub_members (id,name,email,role,password_hash,department,permissions,avatar_color,created_by)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (mid, name, email.lower().strip(), role, ph, department, json.dumps(permissions), avatar_color, created_by))
+    return mid
+
+def hub_get_members():
+    with db() as c:
+        rows = c.execute("SELECT id,name,email,role,department,permissions,avatar_color,created_at FROM hub_members ORDER BY name").fetchall()
     return [dict(r) for r in rows]
 
-def save_hub_api_key(service, api_key_val, extra_config, added_by, note):
+def hub_delete_member(mid):
     with db() as c:
-        existing = c.execute("SELECT id FROM hub_api_keys WHERE service=?", (service,)).fetchone()
+        c.execute("DELETE FROM hub_members WHERE id=? AND role != 'admin'", (mid,))
+
+def hub_save_api_connection(member_id, service, api_key_val, extra_config, display_name, verified_data):
+    with db() as c:
+        existing = c.execute("SELECT id FROM hub_api_connections WHERE member_id=? AND service=?", (member_id, service)).fetchone()
+        now = datetime.datetime.utcnow().isoformat()
         if existing:
-            c.execute("UPDATE hub_api_keys SET api_key=?, extra_config=?, added_by=?, note=?, connected=1, last_tested=? WHERE service=?",
-                (api_key_val, json.dumps(extra_config), added_by, note, datetime.datetime.utcnow().isoformat(), service))
+            c.execute("""UPDATE hub_api_connections
+                SET api_key=?, extra_config=?, display_name=?, connected=1, verified_data=?, last_tested=?
+                WHERE member_id=? AND service=?""",
+                (api_key_val, json.dumps(extra_config), display_name, json.dumps(verified_data), now, member_id, service))
         else:
-            c.execute("INSERT INTO hub_api_keys (id,service,api_key,extra_config,connected,last_tested,added_by,note) VALUES (?,?,?,?,1,?,?,?)",
-                (str(uuid.uuid4()), service, api_key_val, json.dumps(extra_config), datetime.datetime.utcnow().isoformat(), added_by, note))
+            c.execute("""INSERT INTO hub_api_connections
+                (id,member_id,service,api_key,extra_config,display_name,connected,verified_data,last_tested)
+                VALUES (?,?,?,?,?,?,1,?,?)""",
+                (str(uuid.uuid4()), member_id, service, api_key_val, json.dumps(extra_config), display_name, json.dumps(verified_data), now))
 
-def delete_hub_api_key(service):
+def hub_get_api_connections(member_id=None):
     with db() as c:
-        c.execute("DELETE FROM hub_api_keys WHERE service=?", (service,))
+        if member_id:
+            rows = c.execute("SELECT * FROM hub_api_connections WHERE member_id=? AND connected=1", (member_id,)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM hub_api_connections WHERE connected=1").fetchall()
+    return [dict(r) for r in rows]
 
-def get_hub_org_data(category=None):
+def hub_delete_api_connection(member_id, service):
+    with db() as c:
+        c.execute("DELETE FROM hub_api_connections WHERE member_id=? AND service=?", (member_id, service))
+
+def hub_get_org_knowledge(category=None):
     with db() as c:
         if category:
-            rows = c.execute("SELECT * FROM hub_org_data WHERE category=? AND is_active=1 ORDER BY created_at DESC", (category,)).fetchall()
+            rows = c.execute("SELECT * FROM hub_org_knowledge WHERE category=? AND is_active=1 ORDER BY created_at DESC", (category,)).fetchall()
         else:
-            rows = c.execute("SELECT * FROM hub_org_data WHERE is_active=1 ORDER BY category, created_at DESC").fetchall()
+            rows = c.execute("SELECT * FROM hub_org_knowledge WHERE is_active=1 ORDER BY category, created_at DESC").fetchall()
     return [dict(r) for r in rows]
 
-def add_hub_org_data(category, title, content, source, added_by, tags):
+def hub_add_org_knowledge(category, title, content, added_by_id, added_by_name, tags):
     with db() as c:
-        c.execute("INSERT INTO hub_org_data (id,category,title,content,source,added_by,tags) VALUES (?,?,?,?,?,?,?)",
-            (str(uuid.uuid4()), category, title, content, source, added_by, json.dumps(tags)))
+        c.execute("""INSERT INTO hub_org_knowledge (id,category,title,content,added_by_id,added_by_name,tags)
+            VALUES (?,?,?,?,?,?,?)""",
+            (str(uuid.uuid4()), category, title, content, added_by_id, added_by_name, json.dumps(tags)))
 
-def delete_hub_org_data(did):
+def hub_delete_org_knowledge(kid):
     with db() as c:
-        c.execute("UPDATE hub_org_data SET is_active=0 WHERE id=?", (did,))
+        c.execute("UPDATE hub_org_knowledge SET is_active=0 WHERE id=?", (kid,))
 
-def get_hub_automations():
+def hub_get_automations():
     with db() as c:
         rows = c.execute("SELECT * FROM hub_automations ORDER BY created_at DESC").fetchall()
     return [dict(r) for r in rows]
 
-def save_hub_automation(name, description, agents_seq, prompt_template, use_org_data, created_by):
+def hub_save_automation(name, description, agents_seq, goal_template, use_org_data, created_by_id, created_by_name):
     aid = str(uuid.uuid4())
     with db() as c:
-        c.execute("""INSERT INTO hub_automations (id,name,description,trigger_type,agents_sequence,prompt_template,use_org_data,created_by)
-            VALUES (?,?,?,'manual',?,?,?,?)""",
-            (aid, name, description, json.dumps(agents_seq), prompt_template, 1 if use_org_data else 0, created_by))
+        c.execute("""INSERT INTO hub_automations
+            (id,name,description,agents_sequence,goal_template,use_org_data,created_by_id,created_by_name)
+            VALUES (?,?,?,?,?,?,?,?)""",
+            (aid, name, description, json.dumps(agents_seq), goal_template, 1 if use_org_data else 0, created_by_id, created_by_name))
     return aid
 
-def delete_hub_automation(aid):
+def hub_delete_automation(aid):
     with db() as c:
         c.execute("DELETE FROM hub_automations WHERE id=?", (aid,))
 
-def save_hub_run(run_id, automation_id, automation_name, goal, run_by, status, agent_logs, final_output, token_usage, error=None):
+def hub_get_runs(limit=30):
     with db() as c:
-        c.execute("""INSERT OR REPLACE INTO hub_automation_runs
-            (id,automation_id,automation_name,goal,run_by,status,agent_logs,final_output,token_usage,error)
-            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (run_id, automation_id, automation_name, goal, run_by, status,
-             json.dumps(agent_logs), final_output, json.dumps(token_usage), error))
+        rows = c.execute("SELECT * FROM hub_runs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+def hub_save_run(run_id, automation_id, automation_name, goal, run_by_id, run_by_name,
+                  status, agent_logs, agent_results, final_report, token_usage, real_api_calls):
+    with db() as c:
+        c.execute("""INSERT OR REPLACE INTO hub_runs
+            (id,automation_id,automation_name,goal,run_by_id,run_by_name,status,
+             agent_logs,agent_results,final_report,token_usage,real_api_calls)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (run_id, automation_id, automation_name, goal, run_by_id, run_by_name, status,
+             json.dumps(agent_logs), json.dumps(agent_results), final_report,
+             json.dumps(token_usage), real_api_calls))
         if automation_id:
-            c.execute("UPDATE hub_automations SET last_run=?, run_count=run_count+1 WHERE id=?",
+            c.execute("UPDATE hub_automations SET run_count=run_count+1, last_run_at=? WHERE id=?",
                 (datetime.datetime.utcnow().isoformat(), automation_id))
 
-def get_hub_runs(limit=30):
-    with db() as c:
-        rows = c.execute("SELECT * FROM hub_automation_runs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-    return [dict(r) for r in rows]
+# ─── Real API Test + Fetch Functions ──────────────────────────────────────────
 
-def get_hub_members():
-    with db() as c:
-        rows = c.execute("SELECT * FROM hub_members ORDER BY name").fetchall()
-    return [dict(r) for r in rows]
-
-def verify_hub_member(name, pin):
-    import hashlib
-    pin_hash = hashlib.sha256(pin.encode()).hexdigest()
-    with db() as c:
-        row = c.execute("SELECT * FROM hub_members WHERE name=? AND pin_hash=?", (name, pin_hash)).fetchone()
-    return dict(row) if row else None
-
-def add_hub_member(name, role, pin, permissions):
-    import hashlib
-    pin_hash = hashlib.sha256(pin.encode()).hexdigest()
-    with db() as c:
-        c.execute("INSERT INTO hub_members (id,name,role,pin_hash,permissions) VALUES (?,?,?,?,?)",
-            (str(uuid.uuid4()), name, role, pin_hash, json.dumps(permissions)))
-
-# ── Real API call functions ───────────────────────────────────────────────────
-
-def test_github_api(token, org_repo=""):
-    """Actually calls GitHub API and returns real data"""
+def real_test_github(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    results = {}
-    try:
-        r = requests.get("https://api.github.com/user", headers=headers, timeout=10)
-        if r.status_code == 200:
-            user = r.json()
-            results["user"] = user.get("login")
-            results["name"] = user.get("name")
-            results["public_repos"] = user.get("public_repos", 0)
-            results["status"] = "connected"
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}: {r.text[:100]}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    r = requests.get("https://api.github.com/user", headers=h, timeout=10)
+    if r.status_code == 200:
+        u = r.json()
+        return {"ok": True, "username": u.get("login"), "name": u.get("name",""),
+                "public_repos": u.get("public_repos",0), "company": u.get("company",""),
+                "display": f"@{u.get('login')} · {u.get('public_repos',0)} repos"}
+    return {"ok": False, "error": f"HTTP {r.status_code}: {r.json().get('message','error')}"}
 
-def test_slack_api(token):
-    """Actually calls Slack API"""
+def real_test_slack(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}"}
-    results = {}
-    try:
-        r = requests.get("https://slack.com/api/auth.test", headers=headers, timeout=10)
-        data = r.json()
-        if data.get("ok"):
-            results["status"] = "connected"
-            results["team"] = data.get("team")
-            results["user"] = data.get("user")
-            results["team_id"] = data.get("team_id")
-        else:
-            results["status"] = "failed"
-            results["error"] = data.get("error", "Unknown error")
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    r = requests.get("https://slack.com/api/auth.test", headers={"Authorization": f"Bearer {token}"}, timeout=10)
+    d = r.json()
+    if d.get("ok"):
+        return {"ok": True, "workspace": d.get("team"), "user": d.get("user"),
+                "team_id": d.get("team_id"), "display": f"{d.get('team')} · @{d.get('user')}"}
+    return {"ok": False, "error": d.get("error","invalid_token")}
 
-def test_notion_api(token):
-    """Actually calls Notion API"""
+def real_test_notion(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}", "Notion-Version": "2022-06-28", "Content-Type": "application/json"}
-    results = {}
-    try:
-        r = requests.get("https://api.notion.com/v1/users/me", headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            results["status"] = "connected"
-            results["user"] = data.get("name") or data.get("id")
-            results["type"] = data.get("type")
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}: {r.text[:100]}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    h = {"Authorization": f"Bearer {token}", "Notion-Version": "2022-06-28"}
+    r = requests.get("https://api.notion.com/v1/users/me", headers=h, timeout=10)
+    if r.status_code == 200:
+        d = r.json()
+        name = d.get("name") or d.get("id","")
+        return {"ok": True, "user": name, "type": d.get("type",""), "display": f"Notion · {name}"}
+    return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:80]}"}
 
-def test_hubspot_api(token):
-    """Actually calls HubSpot API"""
+def real_test_hubspot(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}"}
-    results = {}
-    try:
-        r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts?limit=1", headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            results["status"] = "connected"
-            results["contacts_sample"] = data.get("total", 0)
-        elif r.status_code == 401:
-            results["status"] = "failed"
-            results["error"] = "Invalid token — check your Private App token"
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    h = {"Authorization": f"Bearer {token}"}
+    r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts?limit=1", headers=h, timeout=10)
+    if r.status_code == 200:
+        total = r.json().get("total", 0)
+        return {"ok": True, "contacts": total, "display": f"HubSpot · {total} contacts"}
+    return {"ok": False, "error": "Invalid token" if r.status_code == 401 else f"HTTP {r.status_code}"}
 
-def test_jira_api(token, domain, email):
-    """Actually calls Jira API"""
-    import requests
-    import base64
+def real_test_jira(token, extra):
+    import requests, base64
+    domain = extra.get("domain","").strip().rstrip("/")
+    email  = extra.get("email","").strip()
+    if not domain or not email:
+        return {"ok": False, "error": "Domain and email are required for Jira"}
     auth = base64.b64encode(f"{email}:{token}".encode()).decode()
-    headers = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
-    results = {}
-    try:
-        url = f"https://{domain}/rest/api/3/myself"
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            results["status"] = "connected"
-            results["user"] = data.get("displayName")
-            results["email"] = data.get("emailAddress")
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}: {r.text[:100]}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    r = requests.get(f"https://{domain}/rest/api/3/myself",
+        headers={"Authorization": f"Basic {auth}", "Accept": "application/json"}, timeout=10)
+    if r.status_code == 200:
+        d = r.json()
+        return {"ok": True, "user": d.get("displayName"), "email": d.get("emailAddress"),
+                "domain": domain, "display": f"{domain} · {d.get('displayName')}"}
+    return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:80]}"}
 
-def test_linear_api(token):
-    """Actually calls Linear GraphQL API"""
+def real_test_linear(token, extra):
     import requests
-    headers = {"Authorization": token, "Content-Type": "application/json"}
-    query = '{"query": "{ viewer { id name email organization { name } } }"}'
-    results = {}
-    try:
-        r = requests.post("https://api.linear.app/graphql", headers=headers, data=query, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            viewer = data.get("data", {}).get("viewer", {})
-            if viewer:
-                results["status"] = "connected"
-                results["user"] = viewer.get("name")
-                results["email"] = viewer.get("email")
-                results["org"] = viewer.get("organization", {}).get("name")
-            else:
-                results["status"] = "failed"
-                results["error"] = str(data.get("errors", "Unknown"))
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    r = requests.post("https://api.linear.app/graphql",
+        headers={"Authorization": token, "Content-Type": "application/json"},
+        json={"query": "{ viewer { id name email organization { name } } }"}, timeout=10)
+    if r.status_code == 200:
+        v = r.json().get("data",{}).get("viewer",{})
+        if v:
+            org = v.get("organization",{}).get("name","")
+            return {"ok": True, "user": v.get("name"), "email": v.get("email"),
+                    "org": org, "display": f"{org} · {v.get('name')}"}
+    return {"ok": False, "error": "Invalid token or GraphQL error"}
 
-def test_airtable_api(token, base_id=""):
-    """Actually calls Airtable API"""
+def real_test_airtable(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}"}
-    results = {}
-    try:
-        r = requests.get("https://api.airtable.com/v0/meta/bases", headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            bases = data.get("bases", [])
-            results["status"] = "connected"
-            results["bases_count"] = len(bases)
-            results["bases"] = [b.get("name") for b in bases[:3]]
-        else:
-            results["status"] = "failed"
-            results["error"] = f"HTTP {r.status_code}: {r.text[:100]}"
-    except Exception as e:
-        results["status"] = "failed"
-        results["error"] = str(e)
-    return results
+    r = requests.get("https://api.airtable.com/v0/meta/bases",
+        headers={"Authorization": f"Bearer {token}"}, timeout=10)
+    if r.status_code == 200:
+        bases = r.json().get("bases", [])
+        names = [b.get("name","") for b in bases[:3]]
+        return {"ok": True, "bases": len(bases), "sample": names,
+                "display": f"Airtable · {len(bases)} bases"}
+    return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:80]}"}
 
-def fetch_real_github_data(token, repo="", action="pr_digest"):
-    """Fetch real data from GitHub to inject into agent context"""
+SERVICES_CONFIG = {
+    "github":    {"name":"GitHub",    "icon":"🐙", "test_fn": real_test_github,
+                  "key_label":"Personal Access Token", "key_placeholder":"ghp_xxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields": [{"key":"org_repo","label":"Default Org/Repo","placeholder":"myorg/myrepo (optional)"}],
+                  "guide_url":"https://github.com/settings/tokens",
+                  "guide":"GitHub → Settings → Developer Settings → Personal Access Tokens → Classic → Generate. Required scopes: repo, read:org, read:user"},
+    "slack":     {"name":"Slack",     "icon":"💬", "test_fn": real_test_slack,
+                  "key_label":"Bot Token", "key_placeholder":"xoxb-xxxxxxxxxxxx-xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields":[],
+                  "guide_url":"https://api.slack.com/apps",
+                  "guide":"api.slack.com/apps → Create App → OAuth & Permissions → Bot Token Scopes: channels:read, channels:history, chat:write → Install App"},
+    "notion":    {"name":"Notion",    "icon":"📝", "test_fn": real_test_notion,
+                  "key_label":"Integration Token", "key_placeholder":"secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields":[],
+                  "guide_url":"https://www.notion.so/my-integrations",
+                  "guide":"notion.so/my-integrations → New Integration → Copy Internal Integration Token → Share your pages/databases with the integration"},
+    "hubspot":   {"name":"HubSpot",   "icon":"🏢", "test_fn": real_test_hubspot,
+                  "key_label":"Private App Token", "key_placeholder":"pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                  "extra_fields":[],
+                  "guide_url":"https://app.hubspot.com/private-apps",
+                  "guide":"HubSpot → Settings → Integrations → Private Apps → Create App → Scopes: crm.objects.contacts.read, crm.objects.deals.read → Install"},
+    "jira":      {"name":"Jira",      "icon":"🎯", "test_fn": real_test_jira,
+                  "key_label":"API Token", "key_placeholder":"ATATT3xFfGF0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields":[
+                      {"key":"domain","label":"Atlassian Domain","placeholder":"yourcompany.atlassian.net"},
+                      {"key":"email", "label":"Your Email",      "placeholder":"you@yourcompany.com"},
+                  ],
+                  "guide_url":"https://id.atlassian.com/manage-profile/security/api-tokens",
+                  "guide":"id.atlassian.com → Security → Create and manage API tokens → Create API token. Also need your Atlassian domain and email."},
+    "linear":    {"name":"Linear",    "icon":"🔷", "test_fn": real_test_linear,
+                  "key_label":"API Key", "key_placeholder":"lin_api_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields":[],
+                  "guide_url":"https://linear.app/settings/api",
+                  "guide":"linear.app → Settings → API → Personal API Keys → Create key"},
+    "airtable":  {"name":"Airtable",  "icon":"🗃️", "test_fn": real_test_airtable,
+                  "key_label":"Personal Access Token", "key_placeholder":"patxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                  "extra_fields":[{"key":"base_id","label":"Default Base ID","placeholder":"appXXXXXXXXXXXXXX (optional)"}],
+                  "guide_url":"https://airtable.com/account",
+                  "guide":"airtable.com/account → API → Create personal access token → Scopes: data.records:read, schema.bases:read"},
+}
+
+# ─── Real Data Fetchers (used during automation runs) ────────────────────────
+
+def fetch_github_live(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    real_data = {}
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    out = {}
     try:
-        # Get repos list
-        r = requests.get("https://api.github.com/user/repos?sort=updated&per_page=5", headers=headers, timeout=10)
-        if r.status_code == 200:
-            repos = r.json()
-            real_data["repos"] = [{"name": rp["full_name"], "stars": rp["stargazers_count"],
-                                    "open_issues": rp["open_issues_count"], "language": rp["language"]} for rp in repos[:5]]
+        repos_r = requests.get("https://api.github.com/user/repos?sort=updated&per_page=8", headers=h, timeout=10)
+        if repos_r.ok:
+            repos = repos_r.json()
+            out["repositories"] = [{"name":r["full_name"],"stars":r["stargazers_count"],
+                "open_issues":r["open_issues_count"],"language":r["language"],"updated":r["updated_at"][:10]} for r in repos[:5]]
             if repos:
-                target_repo = repos[0]["full_name"]
-                # Get PRs from first repo
-                pr_r = requests.get(f"https://api.github.com/repos/{target_repo}/pulls?state=open&per_page=5", headers=headers, timeout=10)
-                if pr_r.status_code == 200:
-                    prs = pr_r.json()
-                    real_data["open_prs"] = [{"title": pr["title"], "author": pr["user"]["login"],
-                                              "created": pr["created_at"][:10], "url": pr["html_url"]} for pr in prs[:5]]
+                top = repos[0]["full_name"]
+                prs_r = requests.get(f"https://api.github.com/repos/{top}/pulls?state=open&per_page=10", headers=h, timeout=10)
+                if prs_r.ok:
+                    prs = prs_r.json()
+                    out["open_pull_requests"] = [{"title":p["title"],"author":p["user"]["login"],
+                        "created":p["created_at"][:10],"draft":p.get("draft",False)} for p in prs[:8]]
+                issues_r = requests.get(f"https://api.github.com/repos/{top}/issues?state=open&per_page=5", headers=h, timeout=10)
+                if issues_r.ok:
+                    issues = [i for i in issues_r.json() if "pull_request" not in i]
+                    out["open_issues"] = [{"title":i["title"],"labels":[l["name"] for l in i["labels"]],
+                        "created":i["created_at"][:10]} for i in issues[:5]]
     except Exception as e:
-        real_data["fetch_error"] = str(e)
-    return real_data
+        out["fetch_error"] = str(e)
+    return out
 
-def fetch_real_slack_data(token, action="summarize_channel"):
-    """Fetch real data from Slack"""
+def fetch_slack_live(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}"}
-    real_data = {}
+    h = {"Authorization": f"Bearer {token}"}
+    out = {}
     try:
-        # List channels
-        r = requests.get("https://slack.com/api/conversations.list?limit=10&exclude_archived=true", headers=headers, timeout=10)
-        data = r.json()
-        if data.get("ok"):
-            channels = data.get("channels", [])
-            real_data["channels"] = [{"name": ch["name"], "members": ch.get("num_members", 0)} for ch in channels[:5]]
+        ch_r = requests.get("https://slack.com/api/conversations.list?limit=20&exclude_archived=true&types=public_channel,private_channel", headers=h, timeout=10)
+        if ch_r.json().get("ok"):
+            channels = ch_r.json().get("channels", [])
+            out["channels"] = [{"name": c["name"], "members": c.get("num_members", 0),
+                "is_private": c.get("is_private",False)} for c in channels[:10]]
+            # Get recent messages from first channel
+            if channels:
+                first_ch = channels[0]
+                hist_r = requests.get(f"https://slack.com/api/conversations.history?channel={first_ch['id']}&limit=10", headers=h, timeout=10)
+                if hist_r.json().get("ok"):
+                    msgs = hist_r.json().get("messages", [])
+                    out["recent_messages_sample"] = [{"text": m.get("text","")[:120]} for m in msgs[:5] if m.get("text")]
     except Exception as e:
-        real_data["fetch_error"] = str(e)
-    return real_data
+        out["fetch_error"] = str(e)
+    return out
 
-def fetch_real_notion_data(token, action="search_pages"):
-    """Fetch real data from Notion"""
+def fetch_notion_live(token, extra):
     import requests
-    headers = {"Authorization": f"Bearer {token}", "Notion-Version": "2022-06-28", "Content-Type": "application/json"}
-    real_data = {}
+    h = {"Authorization": f"Bearer {token}", "Notion-Version": "2022-06-28", "Content-Type": "application/json"}
+    out = {}
     try:
-        r = requests.post("https://api.notion.com/v1/search", headers=headers,
-            json={"page_size": 5, "filter": {"value": "page", "property": "object"}}, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            pages = data.get("results", [])
-            real_data["pages"] = []
-            for pg in pages[:5]:
-                title_prop = pg.get("properties", {}).get("title") or pg.get("properties", {}).get("Name")
+        pages_r = requests.post("https://api.notion.com/v1/search",
+            headers=h, json={"page_size": 10, "filter": {"value":"page","property":"object"}}, timeout=10)
+        if pages_r.status_code == 200:
+            results = pages_r.json().get("results", [])
+            out["pages"] = []
+            for pg in results[:8]:
+                props = pg.get("properties", {})
+                title_prop = props.get("title") or props.get("Name") or props.get("Page")
+                title_text = "Untitled"
                 if title_prop:
-                    title_arr = title_prop.get("title", [])
-                    title_text = title_arr[0]["plain_text"] if title_arr else "Untitled"
-                else:
-                    title_text = "Untitled"
-                real_data["pages"].append({"title": title_text, "id": pg["id"][:8]})
+                    arr = title_prop.get("title", [])
+                    if arr:
+                        title_text = arr[0].get("plain_text", "Untitled")
+                out["pages"].append({
+                    "title": title_text,
+                    "last_edited": pg.get("last_edited_time","")[:10],
+                    "id": pg["id"][:8]
+                })
+        dbs_r = requests.post("https://api.notion.com/v1/search",
+            headers=h, json={"page_size": 5, "filter": {"value":"database","property":"object"}}, timeout=10)
+        if dbs_r.status_code == 200:
+            out["databases_count"] = len(dbs_r.json().get("results", []))
     except Exception as e:
-        real_data["fetch_error"] = str(e)
-    return real_data
+        out["fetch_error"] = str(e)
+    return out
 
-def build_org_context_string():
-    """Builds a rich context string from the org database to inject into agent prompts"""
-    org_data = get_hub_org_data()
-    if not org_data:
-        return ""
-    lines = ["=== ORGANISATION CONTEXT (from live database) ==="]
-    by_cat = {}
-    for item in org_data:
-        by_cat.setdefault(item["category"], []).append(item)
-    for cat, items in by_cat.items():
-        lines.append(f"\n[{cat.upper()}]")
-        for item in items:
-            lines.append(f"• {item['title']}: {item['content']}")
-    lines.append("\n=== END ORG CONTEXT ===")
-    return "\n".join(lines)
+def fetch_hubspot_live(token, extra):
+    import requests
+    h = {"Authorization": f"Bearer {token}"}
+    out = {}
+    try:
+        contacts_r = requests.get("https://api.hubapi.com/crm/v3/objects/contacts?limit=5&properties=firstname,lastname,email,lifecyclestage,hs_lead_status", headers=h, timeout=10)
+        if contacts_r.ok:
+            data = contacts_r.json()
+            out["total_contacts"] = data.get("total", 0)
+            out["recent_contacts"] = []
+            for c in data.get("results", [])[:5]:
+                p = c.get("properties", {})
+                out["recent_contacts"].append({
+                    "name": f"{p.get('firstname','')} {p.get('lastname','')}".strip() or "Unknown",
+                    "email": p.get("email",""),
+                    "lifecycle": p.get("lifecyclestage",""),
+                    "status": p.get("hs_lead_status","")
+                })
+        deals_r = requests.get("https://api.hubapi.com/crm/v3/objects/deals?limit=5&properties=dealname,amount,dealstage,closedate", headers=h, timeout=10)
+        if deals_r.ok:
+            data = deals_r.json()
+            out["total_deals"] = data.get("total", 0)
+            out["open_deals"] = []
+            for d in data.get("results", [])[:5]:
+                p = d.get("properties", {})
+                out["open_deals"].append({
+                    "name": p.get("dealname",""),
+                    "amount": p.get("amount","0"),
+                    "stage": p.get("dealstage",""),
+                    "close_date": p.get("closedate","")[:10] if p.get("closedate") else ""
+                })
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
 
-def run_live_hub_automation(groq_api_key, automation, goal, run_by, api_keys_map, progress_cb=None):
-    """
-    The real engine of Section 5.
-    Runs a full automation with:
-    - Real API data fetched from connected services
-    - Org database context injected into every agent prompt
-    - Groq LLM executing each agent with the real context
-    - Live synthesis of all agent outputs
-    """
-    run_id = str(uuid.uuid4())
-    agents_seq = json.loads(automation.get("agents_sequence", "[]"))
-    prompt_template = automation.get("prompt_template", "")
-    use_org_data = bool(automation.get("use_org_data", 1))
-    token_usage = {"total_in": 0, "total_out": 0}
-    agent_logs = []
-    sub_results = {}
+def fetch_jira_live(token, extra):
+    import requests, base64
+    domain = extra.get("domain","").strip()
+    email  = extra.get("email","").strip()
+    if not domain or not email:
+        return {"error": "Jira domain and email not configured"}
+    auth = base64.b64encode(f"{email}:{token}".encode()).decode()
+    h = {"Authorization": f"Basic {auth}", "Accept": "application/json"}
+    out = {}
+    try:
+        issues_r = requests.get(f"https://{domain}/rest/api/3/search?jql=assignee%3DcurrentUser()%20ORDER%20BY%20updated%20DESC&maxResults=10", headers=h, timeout=10)
+        if issues_r.ok:
+            data = issues_r.json()
+            out["total_issues"] = data.get("total", 0)
+            out["my_issues"] = []
+            for i in data.get("issues", [])[:8]:
+                f = i.get("fields", {})
+                out["my_issues"].append({
+                    "key": i.get("key",""),
+                    "summary": f.get("summary","")[:80],
+                    "status": f.get("status",{}).get("name",""),
+                    "priority": f.get("priority",{}).get("name",""),
+                    "type": f.get("issuetype",{}).get("name","")
+                })
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
 
-    def log(msg):
-        agent_logs.append({"time": datetime.datetime.now().strftime("%H:%M:%S"), "msg": msg})
+def fetch_linear_live(token, extra):
+    import requests
+    h = {"Authorization": token, "Content-Type": "application/json"}
+    out = {}
+    try:
+        query = """{ issues(filter: { assignee: { isMe: { eq: true } } }, first: 10) {
+            nodes { id title state { name } priority createdAt team { name } } } }"""
+        r = requests.post("https://api.linear.app/graphql", headers=h, json={"query": query}, timeout=10)
+        if r.ok:
+            nodes = r.json().get("data",{}).get("issues",{}).get("nodes",[])
+            out["my_issues"] = [{"title":n["title"],"state":n["state"]["name"],
+                "priority":n["priority"],"team":n["team"]["name"]} for n in nodes[:8]]
+            out["total_assigned"] = len(nodes)
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_airtable_live(token, extra):
+    import requests
+    h = {"Authorization": f"Bearer {token}"}
+    out = {}
+    try:
+        r = requests.get("https://api.airtable.com/v0/meta/bases", headers=h, timeout=10)
+        if r.ok:
+            bases = r.json().get("bases", [])
+            out["bases"] = [{"id":b["id"],"name":b["name"],"permission":b.get("permissionLevel","")} for b in bases[:5]]
+            out["total_bases"] = len(bases)
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+LIVE_FETCHERS = {
+    "github-agent":   fetch_github_live,
+    "slack-agent":    fetch_slack_live,
+    "notion-agent":   fetch_notion_live,
+    "hubspot-agent":  fetch_hubspot_live,
+    "jira-agent":     fetch_jira_live,
+    "linear-agent":   fetch_linear_live,
+    "airtable-agent": fetch_airtable_live,
+}
+
+AGENT_TO_SERVICE = {
+    "github-agent":   "github",
+    "slack-agent":    "slack",
+    "notion-agent":   "notion",
+    "hubspot-agent":  "hubspot",
+    "jira-agent":     "jira",
+    "linear-agent":   "linear",
+    "airtable-agent": "airtable",
+}
+
+# ─── Core Automation Runner ───────────────────────────────────────────────────
+
+def hub_run_automation(groq_key, automation, goal, member, all_connections, progress_cb=None):
+    run_id    = str(uuid.uuid4())
+    agents    = json.loads(automation.get("agents_sequence","[]"))
+    use_org   = bool(automation.get("use_org_data", 1))
+    token_in  = 0
+    token_out = 0
+    agent_results = {}
+    agent_logs    = []
+    real_api_calls_count = 0
+
+    def log(msg, level="info"):
+        entry = {"time": datetime.datetime.now().strftime("%H:%M:%S"), "msg": msg, "level": level}
+        agent_logs.append(entry)
         if progress_cb:
             progress_cb(msg)
 
-    # Build org context
-    org_context = build_org_context_string() if use_org_data else ""
+    # Build org context string
+    org_ctx = ""
+    if use_org:
+        knowledge = hub_get_org_knowledge()
+        if knowledge:
+            lines = ["━━━━━━━━━━ ORGANISATION CONTEXT (live database) ━━━━━━━━━━"]
+            by_cat = {}
+            for k in knowledge:
+                by_cat.setdefault(k["category"], []).append(k)
+            for cat, items in by_cat.items():
+                lines.append(f"\n[{cat.upper()}]")
+                for item in items:
+                    lines.append(f"  • {item['title']}: {item['content']}")
+            lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            org_ctx = "\n".join(lines)
+            log(f"📚 Org knowledge loaded — {len(knowledge)} entries injected into all agents")
 
-    log(f"🚀 Starting automation: {automation['name']}")
-    log(f"📋 Goal: {goal[:80]}...")
-    if org_context:
-        log(f"🗄️ Org context loaded: {len(get_hub_org_data())} knowledge entries injected")
+    # Map all connections by service
+    conn_by_service = {c["service"]: c for c in all_connections}
 
-    # ── MASTER COORDINATOR: plan the workflow ─────────────────────────────────
-    master_system = f"""You are the Master Coordinator of an enterprise AI automation system.
-You have {len(agents_seq)} specialist agents to deploy: {', '.join(agents_seq)}.
+    log(f"🧭 MASTER COORDINATOR — Planning {len(agents)} agent workflow...")
 
-{org_context}
+    # Step 1: Master Coordinator
+    coord_sys = f"""You are the Master Coordinator of an enterprise AI automation system.
+Agents available: {', '.join(agents)}
 
-Your job: create specific, actionable tasks for each agent that together accomplish the automation goal.
-Return ONLY valid JSON:
+{org_ctx}
+
+Analyse the goal and create a specific task for EACH agent. Return ONLY valid JSON:
 {{
-  "automation_goal": "..",
-  "org_understanding": "..",
+  "goal_understood": "..",
+  "org_context_used": true/false,
   "agent_tasks": {{
     "<agent_name>": {{
-      "task": "..",
-      "expected_output": "..",
-      "key_questions": [".."],
+      "task": "specific action this agent must perform",
+      "data_to_extract": ["list","of","specific","data","points"],
+      "depends_on": [],
       "priority": "high|medium|low"
     }}
   }},
-  "success_criteria": "..",
-  "workflow_notes": ".."
+  "expected_final_output": "..",
+  "success_criteria": ".."
 }}"""
 
-    log("🧭 Master Coordinator: Decomposing automation goal...")
-    master_text, ti, to = call_groq_raw(groq_api_key, master_system,
-        f"Automation Goal: {goal}\nUser prompt: {prompt_template}", max_tokens=1500)
-    token_usage["total_in"] += ti; token_usage["total_out"] += to
-
+    coord_text, ti, to = call_groq_raw(groq_key, coord_sys, f"Goal: {goal}", max_tokens=1200)
+    token_in += ti; token_out += to
     try:
-        raw = master_text
+        raw = coord_text.strip()
         if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
         if raw.endswith("```"): raw = raw[:-3].strip()
         master_plan = json.loads(raw)
     except:
-        master_plan = {"automation_goal": goal, "agent_tasks": {a: {"task": f"Perform {a} analysis for: {goal}"} for a in agents_seq}}
-    log(f"✅ Master plan ready — {len(agents_seq)} agents assigned")
+        master_plan = {"agent_tasks": {a: {"task": f"Analyse {a} for: {goal}", "data_to_extract": []} for a in agents}}
+    log(f"✅ Master plan ready — {len(agents)} agents tasked")
 
-    # ── RUN EACH AGENT WITH REAL API DATA ────────────────────────────────────
-    for agent_name in agents_seq:
-        agent_info = SUB_AGENTS.get(agent_name, {})
+    # Step 2: Run each agent
+    prev_output = None
+    for agent_name in agents:
+        ainfo = SUB_AGENTS.get(agent_name, {})
         task_info = master_plan.get("agent_tasks", {}).get(agent_name, {})
-        task_desc = task_info.get("task", f"Perform {agent_name} operations for: {goal}")
+        task_desc = task_info.get("task", f"Perform {agent_name} operations")
+        service_id = AGENT_TO_SERVICE.get(agent_name, "")
 
-        log(f"{agent_info.get('icon','🤖')} {agent_info.get('name', agent_name)}: Starting...")
+        log(f"{ainfo.get('icon','🤖')} {ainfo.get('name', agent_name)} — Starting task...")
 
-        # Fetch REAL API data if connected
-        real_api_context = ""
-        agent_key_map = {
-            "github-agent": "github",
-            "slack-agent": "slack",
-            "notion-agent": "notion",
-            "hubspot-agent": "hubspot",
-            "jira-agent": "jira",
-            "linear-agent": "linear",
-            "airtable-agent": "airtable",
-        }
-        service_name = agent_key_map.get(agent_name, "")
-        if service_name and service_name in api_keys_map:
-            svc_key = api_keys_map[service_name].get("api_key", "")
-            svc_extra = json.loads(api_keys_map[service_name].get("extra_config", "{}"))
-            if svc_key:
-                log(f"  📡 Fetching REAL data from {service_name.upper()} API...")
+        # Fetch REAL live data if connected
+        real_data_block = ""
+        is_real = False
+        if service_id and service_id in conn_by_service:
+            conn = conn_by_service[service_id]
+            api_key_val = conn.get("api_key", "")
+            extra_cfg = json.loads(conn.get("extra_config", "{}"))
+            fetcher = LIVE_FETCHERS.get(agent_name)
+            if fetcher and api_key_val:
+                log(f"  🔌 Fetching LIVE data from {SERVICES_CONFIG.get(service_id,{}).get('name', service_id)} API...")
                 try:
-                    if agent_name == "github-agent":
-                        real_data = fetch_real_github_data(svc_key)
-                        if real_data:
-                            real_api_context = f"\n\n=== REAL GITHUB DATA (fetched live) ===\n{json.dumps(real_data, indent=2)[:800]}"
-                            log(f"  ✅ Real GitHub data: {len(real_data.get('repos', []))} repos, {len(real_data.get('open_prs', []))} open PRs")
-                    elif agent_name == "slack-agent":
-                        real_data = fetch_real_slack_data(svc_key)
-                        if real_data:
-                            real_api_context = f"\n\n=== REAL SLACK DATA (fetched live) ===\n{json.dumps(real_data, indent=2)[:800]}"
-                            log(f"  ✅ Real Slack data: {len(real_data.get('channels', []))} channels")
-                    elif agent_name == "notion-agent":
-                        real_data = fetch_real_notion_data(svc_key)
-                        if real_data:
-                            real_api_context = f"\n\n=== REAL NOTION DATA (fetched live) ===\n{json.dumps(real_data, indent=2)[:800]}"
-                            log(f"  ✅ Real Notion data: {len(real_data.get('pages', []))} pages")
+                    live_data = fetcher(api_key_val, extra_cfg)
+                    if live_data and not live_data.get("fetch_error"):
+                        real_data_block = f"\n\n╔══ REAL LIVE DATA from {service_id.upper()} API ══╗\n{json.dumps(live_data, indent=2)[:1200]}\n╚══════════════════════════════════════════╝"
+                        is_real = True
+                        real_api_calls_count += 1
+                        log(f"  ✅ LIVE {service_id.upper()} data fetched — {len(json.dumps(live_data))} bytes of real data")
+                    else:
+                        log(f"  ⚠️ {service_id} returned error: {live_data.get('fetch_error','unknown')}", "warn")
                 except Exception as e:
-                    log(f"  ⚠️ Real API fetch warning: {str(e)[:60]}")
+                    log(f"  ⚠️ {service_id} fetch error: {str(e)[:80]}", "warn")
+        else:
+            if service_id:
+                log(f"  🤖 {service_id.upper()} not connected — AI will generate contextual analysis")
 
-        # Build agent system prompt with org context + real data
+        # Build agent prompt
         base_prompt = AGENT_PROMPTS.get(agent_name, "You are a helpful AI agent. Return only valid JSON.")
-        agent_system = f"""{base_prompt}
+        sys_prompt = f"""{base_prompt}
 
-{org_context}
+{org_ctx}
 
-IMPORTANT: Use the organisation context above to make your analysis highly specific to this organisation.
-Do not give generic responses — reference actual org details, team names, and company-specific context.
-"""
+CRITICAL INSTRUCTION: You MUST use the organisation context above to make your analysis specific to this organisation.
+Never give generic answers. Reference actual company names, team sizes, product names, and specific metrics from the context.
+{"If REAL LIVE DATA is provided below, treat it as ground truth and base your analysis directly on it." if is_real else "No live API connection — generate highly contextual analysis based on the org data provided."}"""
 
-        # Build user message
-        prev_context = ""
-        if sub_results:
-            last_key = list(sub_results.keys())[-1]
-            prev_context = f"\n\nContext from previous agent ({last_key}):\n{json.dumps(sub_results[last_key], indent=2)[:500]}"
+        prev_ctx = ""
+        if prev_output:
+            prev_agent = list(agent_results.keys())[-1]
+            prev_ainfo = SUB_AGENTS.get(prev_agent, {})
+            clean_prev = {k:v for k,v in prev_output.items() if not k.startswith("_")}
+            prev_ctx = f"\n\n[CONTEXT FROM PREVIOUS AGENT — {prev_ainfo.get('name', prev_agent)}]\n{json.dumps(clean_prev, indent=2)[:600]}"
 
-        user_msg = f"""Automation Goal: {goal}
-Your specific task: {task_desc}
-Key questions to answer: {json.dumps(task_info.get('key_questions', []))}
-{real_api_context}
-{prev_context}
+        user_msg = f"""AUTOMATION: {automation['name']}
+GOAL: {goal}
+YOUR TASK: {task_desc}
+DATA POINTS TO EXTRACT: {json.dumps(task_info.get('data_to_extract', []))}
+{real_data_block}
+{prev_ctx}
 
-Execute this task with maximum specificity. If real API data is provided above, use it directly in your response.
-Return detailed, enterprise-grade JSON output."""
+Execute your task now. {"Use the REAL LIVE DATA above as your primary source." if is_real else "Use the org context to generate specific, accurate analysis."}
+Return detailed enterprise-grade JSON."""
 
         try:
-            result_text, ti, to = call_groq_raw(groq_api_key, agent_system, user_msg, max_tokens=1800)
-            token_usage["total_in"] += ti; token_usage["total_out"] += to
-
-            # Parse result
-            raw = result_text
+            result_text, ti, to = call_groq_raw(groq_key, sys_prompt, user_msg, max_tokens=1800)
+            token_in += ti; token_out += to
+            raw = result_text.strip()
             if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
             if raw.endswith("```"): raw = raw[:-3].strip()
             try:
                 parsed = json.loads(raw)
             except:
-                match = re.search(r'\{.*\}', raw, re.DOTALL)
-                parsed = json.loads(match.group()) if match else {"output": raw}
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                parsed = json.loads(m.group()) if m else {"output": raw}
 
-            # Tag with metadata
-            parsed["_hub_meta"] = {
+            parsed["_meta"] = {
                 "agent": agent_name,
-                "real_api_used": bool(real_api_context),
-                "service": service_name or "groq-only",
-                "tokens_in": ti,
-                "tokens_out": to,
-                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "real_api": is_real,
+                "service": service_id or "none",
+                "tokens": ti + to,
             }
-            sub_results[agent_name] = parsed
-            log(f"  ✅ {agent_info.get('name', agent_name)} complete | {'🔌 REAL API' if real_api_context else '🤖 AI-generated'} | {ti+to} tokens")
+            agent_results[agent_name] = parsed
+            prev_output = parsed
+            source_tag = "🔌 REAL API DATA" if is_real else "🤖 AI-generated"
+            log(f"  ✅ Done ({source_tag}) — {ti+to} tokens")
 
         except Exception as e:
-            sub_results[agent_name] = {"error": str(e), "agent": agent_name}
-            log(f"  ❌ {agent_name} failed: {str(e)[:60]}")
+            agent_results[agent_name] = {"error": str(e), "_meta": {"agent": agent_name, "real_api": False}}
+            log(f"  ❌ Failed: {str(e)[:80]}", "error")
 
-    # ── SYNTHESIS: final intelligence report ─────────────────────────────────
-    log("🧠 Synthesis Agent: Building final intelligence report...")
+        prev_output = agent_results.get(agent_name)
 
-    synth_parts = [f"Automation: {automation['name']}", f"Goal: {goal}", f"Run by: {run_by}", f""]
-    if org_context:
-        synth_parts.append(org_context[:800])
-    synth_parts.append("\n=== AGENT OUTPUTS ===")
-    for agent_name, result in sub_results.items():
-        agent_info = SUB_AGENTS.get(agent_name, {})
-        meta = result.pop("_hub_meta", {}) if "_hub_meta" in result else {}
-        clean = {k: v for k, v in result.items() if not k.startswith("_")}
-        synth_parts.append(f"\n--- {agent_info.get('icon','')} {agent_info.get('name', agent_name)} ---")
-        synth_parts.append(f"Real API Used: {meta.get('real_api_used', False)}")
-        synth_parts.append(json.dumps(clean, indent=2)[:600])
+    # Step 3: Synthesis
+    log("🧠 SYNTHESIS AGENT — Building final intelligence report...")
 
-    synth_system = """You are a Master Intelligence Synthesiser for an enterprise AI platform.
-You receive outputs from multiple specialist AI agents (some with real API data) and produce a final intelligence report.
-Format as clean markdown with sections:
-## Executive Summary
-## Key Findings by Domain
-## Critical Actions Required (numbered, specific, assigned to roles)
-## Data Highlights (tables where relevant)
-## Risk Flags
-## Recommended Next Steps
+    synth_parts = [
+        f"# Automation: {automation['name']}",
+        f"# Goal: {goal}",
+        f"# Run by: {member.get('name','?')} ({member.get('role','?')})",
+        f"# Agents run: {len(agent_results)} | Real API calls: {real_api_calls_count}",
+        "",
+        org_ctx[:600] if org_ctx else "",
+        "",
+        "## AGENT OUTPUTS",
+    ]
+    for aname, result in agent_results.items():
+        ainfo = SUB_AGENTS.get(aname, {})
+        meta = result.get("_meta", {})
+        clean = {k:v for k,v in result.items() if not k.startswith("_")}
+        synth_parts.append(f"\n### {ainfo.get('icon','')} {ainfo.get('name', aname)}")
+        synth_parts.append(f"Source: {'🔌 REAL LIVE API DATA' if meta.get('real_api') else '🤖 AI-generated (no API connected)'}")
+        synth_parts.append(json.dumps(clean, indent=2)[:700])
 
-Be highly specific — reference actual data points, names, numbers from the agent outputs.
-If real API data was used, highlight those findings prominently as they are verified facts."""
+    synth_sys = """You are the Master Intelligence Synthesiser for an enterprise AI automation platform.
 
-    final_report, ti, to = call_groq_raw(groq_api_key, synth_system, "\n".join(synth_parts), max_tokens=2500)
-    token_usage["total_in"] += ti; token_usage["total_out"] += to
+Write a comprehensive, executive-grade intelligence report in clean markdown. Structure:
 
-    token_usage["total"] = token_usage["total_in"] + token_usage["total_out"]
-    token_usage["approx_cost_usd"] = round(token_usage["total"] / 1_000_000 * 0.59, 5)
-    log(f"✅ Synthesis complete | Total tokens: {token_usage['total']} | Est. cost: ${token_usage['approx_cost_usd']}")
+## 🎯 Executive Summary
+(2-3 paragraphs, data-driven, specific to this organisation)
+
+## 📊 Key Findings by Domain
+(Subsections per agent area, with specific data points, numbers, names)
+
+## 🚨 Critical Actions Required
+(Numbered list. Each action: specific, assigned to a role, has a deadline)
+
+## 📈 Data Highlights
+(Markdown table of key metrics from agent outputs)
+
+## ⚠️ Risks & Flags
+(What needs immediate attention)
+
+## 🔮 Recommended Next Steps
+(Concrete, prioritised, time-bound)
+
+IMPORTANT: If an agent used REAL LIVE API DATA, prominently mark those findings with ✅ VERIFIED.
+Always reference actual names, numbers, and specifics from the org context and agent outputs."""
+
+    final_report, ti, to = call_groq_raw(groq_key, synth_sys, "\n".join(synth_parts), max_tokens=2500)
+    token_in += ti; token_out += to
+    log(f"✅ Synthesis complete")
+
+    token_usage = {
+        "total_in": token_in, "total_out": token_out,
+        "total": token_in + token_out,
+        "cost_usd": round((token_in + token_out) / 1_000_000 * 0.59, 5),
+    }
+    log(f"🏁 Complete — {token_usage['total']:,} tokens · ${token_usage['cost_usd']} · {real_api_calls_count} real API calls")
 
     # Save to DB
-    save_hub_run(run_id, automation.get("id"), automation["name"], goal, run_by,
-                 "COMPLETED", agent_logs, final_report, token_usage)
+    hub_save_run(run_id, automation.get("id",""), automation["name"], goal,
+                  member.get("id",""), member.get("name","unknown"),
+                  "COMPLETED", agent_logs, agent_results, final_report, token_usage, real_api_calls_count)
 
     return {
         "run_id": run_id,
-        "automation_name": automation["name"],
-        "goal": goal,
-        "sub_results": sub_results,
         "final_report": final_report,
+        "agent_results": agent_results,
         "agent_logs": agent_logs,
         "token_usage": token_usage,
-        "agents_run": list(sub_results.keys()),
+        "real_api_calls": real_api_calls_count,
+        "agents_run": list(agent_results.keys()),
     }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#   SECTION 5 UI
+#   SECTION 5 — UI
 # ══════════════════════════════════════════════════════════════════════════════
 
 if page == "live_hub":
-    # CSS additions for Section 5
-    st.markdown("""
-<style>
-.hub-header { background: linear-gradient(135deg, #0a0a0a, #0f1f0f, #0a1a0a);
-              border: 1px solid #22c55e44; border-radius: 18px; padding: 28px; margin-bottom: 24px; }
-.hub-badge { background: linear-gradient(90deg,#14532d,#065f46); color: #4ade80;
-             padding: 3px 14px; border-radius: 99px; font-size:0.75rem; font-weight:bold; }
-.api-card-connected { background:#0a1f0a; border:2px solid #22c55e44; border-radius:12px;
-                       padding:14px; margin:4px 0; }
-.api-card-disconnected { background:#111827; border:1px solid #374151; border-radius:12px;
-                          padding:14px; margin:4px 0; opacity:0.8; }
-.orgdb-card { background:#0f1629; border-left:3px solid #3b82f6; border-radius:8px;
-               padding:12px; margin:6px 0; }
-.auto-card { background:#111827; border:1px solid #1e3a5f; border-radius:12px;
-              padding:16px; margin:8px 0; transition:border-color 0.2s; }
-.auto-card:hover { border-color:#22c55e; }
-.realapi-badge { background:#14532d; color:#4ade80; padding:1px 8px; border-radius:99px;
-                 font-size:0.72rem; font-weight:bold; }
-.groq-badge { background:#1a1a3e; color:#818cf8; padding:1px 8px; border-radius:99px;
-               font-size:0.72rem; }
-.hub-run-card { background:#0a0f1e; border:1px solid #1e3a5f; border-radius:10px;
-                 padding:14px; margin:6px 0; }
-</style>
-""", unsafe_allow_html=True)
 
-    st.markdown('<span class="hub-badge">⚡ SECTION 5 — LIVE AGENT HUB</span>', unsafe_allow_html=True)
-    st.markdown("""
-<div class="hub-header">
-<h1 style="color:#4ade80; margin:0; font-size:2rem;">⚡ Live Agent Hub</h1>
-<p style="color:#94a3b8; margin:8px 0 0 0; font-size:1.05rem;">
-Connect real APIs · Feed your org knowledge database · Build & run live automations · Everything actually works
-</p>
+    st.markdown("""<style>
+/* ── Section 5 Theme ─────────────────────────────────────────── */
+.hub-hero { background: linear-gradient(135deg,#020c02,#061a06,#020c02);
+            border:1px solid #16a34a55; border-radius:20px; padding:32px; margin-bottom:28px; }
+.login-card { background:#0a140a; border:1px solid #16a34a88; border-radius:16px;
+              padding:32px; max-width:460px; margin:40px auto; }
+.member-avatar { width:42px; height:42px; border-radius:50%; display:inline-flex;
+                 align-items:center; justify-content:center; font-weight:bold;
+                 font-size:1.1rem; color:#fff; }
+.hub-tab-badge { background:#14532d; color:#4ade80; padding:2px 10px;
+                 border-radius:99px; font-size:0.72rem; font-weight:700; }
+.svc-connected { background:#052e16; border:2px solid #16a34a; border-radius:12px;
+                 padding:16px; margin:8px 0; }
+.svc-disconnected { background:#0f172a; border:1px dashed #334155; border-radius:12px;
+                    padding:16px; margin:8px 0; opacity:0.85; }
+.api-step { background:#0f1f0f; border-left:3px solid #22c55e; border-radius:6px;
+            padding:10px 14px; margin:6px 0; font-size:0.88rem; }
+.kb-entry { background:#0a140a; border-left:3px solid #3b82f6;
+            border-radius:8px; padding:12px 14px; margin:6px 0; }
+.auto-block { background:#0a0f0a; border:1px solid #1e3a1e; border-radius:12px;
+              padding:18px; margin:10px 0; }
+.run-log-line { font-family:monospace; font-size:0.82rem; padding:3px 0; color:#94a3b8; }
+.run-log-real { color:#4ade80 !important; font-weight:600; }
+.run-log-error { color:#f87171 !important; }
+.verified-badge { background:#14532d; color:#4ade80; padding:1px 8px; border-radius:99px;
+                  font-size:0.75rem; font-weight:700; }
+.ai-badge { background:#1e1b4b; color:#a5b4fc; padding:1px 8px; border-radius:99px;
+            font-size:0.75rem; }
+.run-card { background:#050d05; border:1px solid #1e3a1e; border-radius:10px; padding:16px; margin:8px 0; }
+.member-chip { background:#0f172a; border:1px solid #1e3a5f; border-radius:8px;
+               padding:10px 14px; margin:4px; display:inline-block; }
+</style>""", unsafe_allow_html=True)
+
+    # ── SESSION STATE ─────────────────────────────────────────────────────────
+    if "hub_logged_in" not in st.session_state:
+        st.session_state.hub_logged_in = False
+        st.session_state.hub_member = None
+
+    # ════════════════════════════════════════════════════════════════
+    #  LOGIN GATE  — must log in to use Section 5
+    # ════════════════════════════════════════════════════════════════
+    if not st.session_state.hub_logged_in:
+        st.markdown('<span class="hub-tab-badge">⚡ SECTION 5 — LIVE AGENT HUB</span>', unsafe_allow_html=True)
+
+        st.markdown("""
+<div class="hub-hero">
+<h1 style="color:#4ade80;margin:0;font-size:2.2rem;">⚡ Live Agent Hub</h1>
+<p style="color:#86efac;margin:10px 0 4px 0;font-size:1.1rem;">Real API connections · Live data fetch · Org knowledge database · Real automations</p>
+<p style="color:#6b7280;margin:0;font-size:0.9rem;">Sign in with your organisation account to access the Hub</p>
 </div>
 """, unsafe_allow_html=True)
 
-    if not api_key:
-        st.error("🔑 Add your Groq API key in the sidebar first (free at console.groq.com)")
+        col_login, col_info = st.columns([1, 1])
+
+        with col_login:
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
+            st.markdown("### 🔐 Sign In")
+            st.caption("Use your organisation email and password")
+
+            login_email = st.text_input("Email", placeholder="you@yourorg.com", key="login_email")
+            login_pass  = st.text_input("Password", type="password", placeholder="Your password", key="login_pass")
+            login_btn   = st.button("Sign In →", type="primary", use_container_width=True)
+
+            if login_btn:
+                if not login_email.strip() or not login_pass.strip():
+                    st.error("Enter email and password.")
+                else:
+                    member = hub_verify_login(login_email.strip(), login_pass.strip())
+                    if member:
+                        st.session_state.hub_logged_in = True
+                        st.session_state.hub_member = member
+                        st.success(f"Welcome, {member['name']}!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid email or password. Check credentials and try again.")
+
+            st.markdown("---")
+            st.markdown('<p style="color:#6b7280;font-size:0.82rem;">Demo accounts:<br>📧 admin@org.ai / admin123 (Admin)<br>📧 demo@org.ai / demo123 (Member)</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_info:
+            st.markdown("### What's inside the Hub?")
+            features = [
+                ("🔌", "Real API Connections", "Connect GitHub, Slack, Notion, HubSpot, Jira, Linear, Airtable with your real keys. Keys are tested live before saving."),
+                ("🗄️", "Org Knowledge Database", "Any member can feed your org's data — OKRs, team info, customers, strategy. Agents use it as context."),
+                ("⚡", "Live Automations", "Build workflows chaining multiple agents. Real API data is fetched live and combined with org context."),
+                ("📊", "Verified Reports", "Every automation produces a synthesis report. Real API data is clearly marked VERIFIED vs AI-generated."),
+            ]
+            for icon, title, desc in features:
+                st.markdown(f"""<div style="background:#0a140a;border:1px solid #1e3a1e;border-radius:10px;padding:14px;margin:8px 0;">
+<strong style="color:#4ade80;">{icon} {title}</strong><br>
+<span style="color:#94a3b8;font-size:0.88rem;">{desc}</span>
+</div>""", unsafe_allow_html=True)
+
         st.stop()
 
-    # Member login / identity
-    if "hub_member" not in st.session_state:
-        st.session_state.hub_member = {"name": "Guest", "role": "Guest", "permissions": ["view", "run"]}
+    # ── LOGGED IN ─────────────────────────────────────────────────────────────
+    member = st.session_state.hub_member
+    perms  = json.loads(member.get("permissions", "[]"))
+    is_admin = "admin" in perms
 
+    # Header bar
+    col_title, col_user = st.columns([4, 1])
+    with col_title:
+        st.markdown('<span class="hub-tab-badge">⚡ SECTION 5 — LIVE AGENT HUB</span>', unsafe_allow_html=True)
+        st.markdown("""<div class="hub-hero" style="padding:20px;">
+<h2 style="color:#4ade80;margin:0;">⚡ Live Agent Hub</h2>
+<p style="color:#86efac;margin:6px 0 0 0;font-size:0.95rem;">Real APIs · Live Data · Org Knowledge Database · Real Automations</p>
+</div>""", unsafe_allow_html=True)
+    with col_user:
+        st.markdown(f"""<div style="text-align:right;padding-top:8px;">
+<div class="member-avatar" style="background:{member.get('avatar_color','#3b82f6')};display:inline-flex;">{member['name'][0].upper()}</div><br>
+<strong style="color:#f1f5f9;">{member['name']}</strong><br>
+<span style="color:#94a3b8;font-size:0.8rem;">{member['role']}</span>
+</div>""", unsafe_allow_html=True)
+        if st.button("Sign Out", key="signout_btn"):
+            st.session_state.hub_logged_in = False
+            st.session_state.hub_member = None
+            st.rerun()
+
+    if not api_key:
+        st.error("🔑 Add your Groq API key in the sidebar to enable AI agents.")
+
+    # ── MAIN TABS ─────────────────────────────────────────────────────────────
     hub_tabs = st.tabs([
         "🔌 API Connections",
         "🗄️ Org Knowledge DB",
@@ -3998,238 +4235,223 @@ Connect real APIs · Feed your org knowledge database · Build & run live automa
         "👥 Members",
     ])
 
-    # ═══════════════════════════════════════════════════════════
-    # TAB 1 — API CONNECTIONS (Real keys, real testing)
-    # ═══════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 1 — API CONNECTIONS
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[0]:
-        st.subheader("🔌 Connect Real APIs")
-        st.markdown("Enter your real API keys. Keys are stored in the local SQLite database and used to fetch **live data** when automations run.")
-        st.info("💡 Keys are stored locally in `saap_v4.db` — never sent anywhere except the respective service's API.")
+        st.subheader("🔌 Connect Your Real APIs")
+        st.markdown("""
+Each service you connect will have its **live data fetched** when automations run.
+Enter your real API key → click **Test & Save** → connection is verified against the real API and stored in the database.
+""")
 
-        # Service definitions
-        SERVICES = {
-            "github": {
-                "name": "GitHub", "icon": "🐙",
-                "fields": [{"key": "api_key", "label": "Personal Access Token", "placeholder": "ghp_...", "type": "password"}],
-                "extra_fields": [{"key": "org_repo", "label": "Org/Repo (optional)", "placeholder": "myorg/myrepo"}],
-                "guide": "Settings → Developer Settings → Personal Access Tokens → Classic → Generate new token (scopes: repo, read:org)",
-                "test_fn": lambda k, e: test_github_api(k, e.get("org_repo", "")),
-            },
-            "slack": {
-                "name": "Slack", "icon": "💬",
-                "fields": [{"key": "api_key", "label": "Bot Token", "placeholder": "xoxb-...", "type": "password"}],
-                "extra_fields": [],
-                "guide": "api.slack.com/apps → Create App → OAuth & Permissions → Bot Token Scopes (channels:read, chat:write) → Install App",
-                "test_fn": lambda k, e: test_slack_api(k),
-            },
-            "notion": {
-                "name": "Notion", "icon": "📝",
-                "fields": [{"key": "api_key", "label": "Integration Token", "placeholder": "secret_...", "type": "password"}],
-                "extra_fields": [],
-                "guide": "notion.so/my-integrations → New Integration → Copy Internal Integration Token",
-                "test_fn": lambda k, e: test_notion_api(k),
-            },
-            "hubspot": {
-                "name": "HubSpot", "icon": "🏢",
-                "fields": [{"key": "api_key", "label": "Private App Token", "placeholder": "pat-...", "type": "password"}],
-                "extra_fields": [],
-                "guide": "HubSpot → Settings → Integrations → Private Apps → Create private app → Scopes: crm.objects.contacts.read, crm.objects.deals.read",
-                "test_fn": lambda k, e: test_hubspot_api(k),
-            },
-            "jira": {
-                "name": "Jira", "icon": "🎯",
-                "fields": [{"key": "api_key", "label": "API Token", "placeholder": "ATATT...", "type": "password"}],
-                "extra_fields": [
-                    {"key": "domain", "label": "Domain", "placeholder": "yourcompany.atlassian.net"},
-                    {"key": "email", "label": "Email", "placeholder": "you@company.com"},
-                ],
-                "guide": "id.atlassian.com → Security → API tokens → Create API token",
-                "test_fn": lambda k, e: test_jira_api(k, e.get("domain", ""), e.get("email", "")),
-            },
-            "linear": {
-                "name": "Linear", "icon": "🔷",
-                "fields": [{"key": "api_key", "label": "API Key", "placeholder": "lin_api_...", "type": "password"}],
-                "extra_fields": [],
-                "guide": "linear.app → Settings → API → Personal API Keys → Create Key",
-                "test_fn": lambda k, e: test_linear_api(k),
-            },
-            "airtable": {
-                "name": "Airtable", "icon": "🗃️",
-                "fields": [{"key": "api_key", "label": "Personal Access Token", "placeholder": "pat...", "type": "password"}],
-                "extra_fields": [{"key": "base_id", "label": "Base ID (optional)", "placeholder": "app..."}],
-                "guide": "airtable.com/account → API → Create personal access token (scopes: data.records:read, schema.bases:read)",
-                "test_fn": lambda k, e: test_airtable_api(k, e.get("base_id", "")),
-            },
-        }
+        # Load this member's existing connections
+        my_connections = hub_get_api_connections(member["id"])
+        connected_map  = {c["service"]: c for c in my_connections}
 
-        existing_keys = {k["service"]: k for k in get_hub_api_keys()}
+        connected_count = len(connected_map)
+        total_services  = len(SERVICES_CONFIG)
+        st.markdown(f"**{connected_count}/{total_services} services connected** for `{member['name']}`")
+        if connected_count:
+            badge_cols = st.columns(connected_count)
+            for i, svc_id in enumerate(connected_map.keys()):
+                svc = SERVICES_CONFIG.get(svc_id, {})
+                badge_cols[i].success(f"{svc.get('icon','')} {svc.get('name', svc_id)}")
 
-        for service_id, svc in SERVICES.items():
-            is_connected = service_id in existing_keys and existing_keys[service_id].get("connected", 0)
-            card_class = "api-card-connected" if is_connected else "api-card-disconnected"
-            status_icon = "🟢 CONNECTED" if is_connected else "⚪ Not connected"
+        st.divider()
 
-            with st.expander(f"{svc['icon']} {svc['name']} — {status_icon}", expanded=False):
+        for svc_id, svc in SERVICES_CONFIG.items():
+            is_connected = svc_id in connected_map
+            existing     = connected_map.get(svc_id, {})
+            verified     = json.loads(existing.get("verified_data","{}")) if is_connected else {}
+            extra_saved  = json.loads(existing.get("extra_config","{}")) if is_connected else {}
+
+            # Expander header with status
+            status_str = f"🟢 Connected — {verified.get('display','')}" if is_connected else "⚪ Not connected"
+            with st.expander(f"{svc['icon']} **{svc['name']}** — {status_str}", expanded=False):
+
                 if is_connected:
-                    existing = existing_keys[service_id]
-                    st.success(f"✅ Connected | Added by: `{existing.get('added_by','?')}` | Last tested: {existing.get('last_tested','?')[:16] if existing.get('last_tested') else 'Never'}")
-                    if existing.get("note"):
-                        st.caption(f"Note: {existing['note']}")
+                    st.markdown(f"""<div class="svc-connected">
+<strong style="color:#4ade80;">✅ Connected</strong><br>
+<span style="color:#86efac;">{verified.get('display','Verified')}</span><br>
+<span style="color:#6b7280;font-size:0.82rem;">Added: {existing.get('added_at','?')[:16]}</span>
+</div>""", unsafe_allow_html=True)
 
-                with st.form(f"api_form_{service_id}"):
-                    st.markdown(f"**How to get this key:** {svc['guide']}")
-                    st.markdown("")
+                # How to get key
+                st.markdown(f"""<div class="api-step">
+<strong style="color:#4ade80;">📋 How to get your {svc['name']} key:</strong><br>
+<span style="color:#d1d5db;">{svc['guide']}</span><br>
+<a href="{svc['guide_url']}" target="_blank" style="color:#60a5fa;">→ Open {svc['name']} API settings ↗</a>
+</div>""", unsafe_allow_html=True)
 
-                    form_vals = {}
-                    for field in svc["fields"]:
-                        form_vals[field["key"]] = st.text_input(
-                            field["label"],
-                            placeholder=field["placeholder"],
-                            type=field.get("type", "text"),
-                            key=f"f_{service_id}_{field['key']}"
-                        )
+                with st.form(f"svc_form_{svc_id}_{member['id']}"):
+                    api_key_input = st.text_input(
+                        svc["key_label"],
+                        placeholder=svc["key_placeholder"],
+                        type="password",
+                        help=f"Your {svc['name']} {svc['key_label']}",
+                        key=f"key_{svc_id}"
+                    )
+
                     extra_vals = {}
                     for ef in svc.get("extra_fields", []):
-                        extra_vals[ef["key"]] = st.text_input(ef["label"], placeholder=ef["placeholder"], key=f"ef_{service_id}_{ef['key']}")
+                        existing_val = extra_saved.get(ef["key"], "")
+                        extra_vals[ef["key"]] = st.text_input(
+                            ef["label"],
+                            value=existing_val,
+                            placeholder=ef["placeholder"],
+                            key=f"extra_{svc_id}_{ef['key']}"
+                        )
 
-                    added_by = st.text_input("Added by (your name)", value=st.session_state.hub_member.get("name", ""), key=f"by_{service_id}")
-                    note = st.text_input("Note (optional)", placeholder="e.g. Production account, read-only", key=f"note_{service_id}")
+                    display_name = st.text_input(
+                        "Label (optional)",
+                        value=existing.get("display_name","") if is_connected else "",
+                        placeholder=f"e.g. {member['name']}'s {svc['name']}",
+                        key=f"display_{svc_id}"
+                    )
 
-                    col_save, col_test, col_del = st.columns([2, 2, 1])
-                    save_btn = col_save.form_submit_button("💾 Save & Test", type="primary", use_container_width=True)
-                    del_btn = col_del.form_submit_button("🗑️ Remove", use_container_width=True)
+                    col_save, col_del = st.columns([3, 1])
+                    save_clicked = col_save.form_submit_button(
+                        f"{'🔄 Update' if is_connected else '🔌 Test & Save'} {svc['name']}",
+                        type="primary", use_container_width=True
+                    )
+                    del_clicked = col_del.form_submit_button("🗑️", use_container_width=True, help="Remove connection")
 
-                    if save_btn:
-                        main_key = form_vals.get("api_key", "").strip()
-                        if not main_key:
-                            st.error("Please enter the API key/token.")
+                    if save_clicked:
+                        key_val = api_key_input.strip()
+                        if not key_val:
+                            st.error("Please enter your API key/token.")
                         else:
                             with st.spinner(f"Testing {svc['name']} connection..."):
                                 try:
-                                    test_result = svc["test_fn"](main_key, extra_vals)
-                                    if test_result.get("status") == "connected":
-                                        save_hub_api_key(service_id, main_key, extra_vals, added_by or "unknown", note)
-                                        st.success(f"✅ {svc['name']} connected! Details: {json.dumps({k: v for k, v in test_result.items() if k != 'status'})}")
+                                    test_result = svc["test_fn"](key_val, extra_vals)
+                                    if test_result.get("ok"):
+                                        hub_save_api_connection(
+                                            member["id"], svc_id, key_val, extra_vals,
+                                            display_name or f"{member['name']}'s {svc['name']}",
+                                            test_result
+                                        )
+                                        st.success(f"✅ {svc['name']} connected! — {test_result.get('display','Verified')}")
                                         st.rerun()
                                     else:
-                                        st.error(f"❌ Connection failed: {test_result.get('error', 'Unknown error')}")
-                                        st.info("Key NOT saved. Fix the error and try again.")
+                                        st.error(f"❌ Connection failed: {test_result.get('error','Unknown error')}")
+                                        st.warning("Key NOT saved. Fix the error and try again.")
                                 except Exception as e:
-                                    st.error(f"Test failed: {e}")
+                                    st.error(f"Test error: {str(e)}")
 
-                    if del_btn and service_id in existing_keys:
-                        delete_hub_api_key(service_id)
-                        st.success(f"Removed {svc['name']} key.")
+                    if del_clicked and is_connected:
+                        hub_delete_api_connection(member["id"], svc_id)
+                        st.success(f"Removed {svc['name']} connection.")
                         st.rerun()
 
-        st.divider()
-        # Summary
-        connected = [s for s in SERVICES if s in existing_keys and existing_keys[s].get("connected", 0)]
-        st.markdown(f"**Connected services: {len(connected)}/{len(SERVICES)}**")
-        if connected:
-            cols = st.columns(len(connected))
-            for i, s in enumerate(connected):
-                cols[i].success(f"{SERVICES[s]['icon']} {SERVICES[s]['name']}")
-
-
-    # ═══════════════════════════════════════════════════════════
-    # TAB 2 — ORG KNOWLEDGE DATABASE (feedable by all members)
-    # ═══════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 2 — ORG KNOWLEDGE DATABASE
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[1]:
         st.subheader("🗄️ Organisation Knowledge Database")
         st.markdown("""
-This is your **live, feedable org database**. Any team member can add information here.
-When automations run, this context is automatically injected into every AI agent — making outputs **specific to YOUR organisation**.
+**Any member can add to this database.** Everything here is automatically injected into every AI agent as context —
+making automation outputs specific to YOUR organisation instead of generic AI responses.
 """)
 
-        # Add new data
-        with st.expander("➕ Add Knowledge Entry", expanded=False):
-            with st.form("add_org_data"):
-                cols_form = st.columns([1, 2])
-                with cols_form[0]:
-                    CATEGORIES = ["Company Info", "Team", "Strategy", "Customers", "Products", "Competitors",
-                                  "Processes", "Engineering", "Sales", "Finance", "HR", "Custom"]
-                    cat = st.selectbox("Category", CATEGORIES)
-                    added_by_name = st.text_input("Your name", value=st.session_state.hub_member.get("name", ""))
-                    tags_str = st.text_input("Tags (comma-separated)", placeholder="okr, q4, engineering")
-                with cols_form[1]:
-                    title = st.text_input("Title / Key", placeholder="e.g. Q4 Revenue Target")
-                    content = st.text_area("Content / Value", height=120,
-                        placeholder="e.g. $2.5M ARR target by Dec 31. Currently at $1.8M. Gap: $700K.")
+        # ── Add entry ────────────────────────────────────────────────
+        with st.expander("➕ Add New Knowledge Entry", expanded=False):
+            with st.form("add_knowledge"):
+                KNOWLEDGE_CATEGORIES = [
+                    "Company Info", "Strategy & OKRs", "Team & People",
+                    "Customers & Accounts", "Products", "Competitors",
+                    "Engineering", "Sales & Revenue", "Finance", "Processes", "Other"
+                ]
+                kb_cols = st.columns([1, 2])
+                with kb_cols[0]:
+                    kb_cat   = st.selectbox("Category", KNOWLEDGE_CATEGORIES)
+                    kb_tags  = st.text_input("Tags", placeholder="q4, strategy, okr (comma-separated)")
+                with kb_cols[1]:
+                    kb_title = st.text_input("Title / Key", placeholder="e.g. Q4 Revenue Target")
+                    kb_content = st.text_area("Content", height=100,
+                        placeholder="e.g. $2.5M ARR target by Dec 31. Currently at $1.8M. Main gap is enterprise deals.")
 
-                submitted = st.form_submit_button("➕ Add to Database", type="primary")
-                if submitted:
-                    if not title.strip() or not content.strip():
+                kb_submit = st.form_submit_button("➕ Add to Database", type="primary")
+                if kb_submit:
+                    if not kb_title.strip() or not kb_content.strip():
                         st.error("Title and content are required.")
                     else:
-                        tags = [t.strip() for t in tags_str.split(",") if t.strip()]
-                        add_hub_org_data(cat, title, content, "manual", added_by_name or "member", tags)
-                        st.success(f"✅ Added: **{title}**")
+                        tags = [t.strip() for t in kb_tags.split(",") if t.strip()]
+                        hub_add_org_knowledge(kb_cat, kb_title, kb_content, member["id"], member["name"], tags)
+                        st.success(f"✅ Added: **{kb_title}**")
                         st.rerun()
 
-        st.divider()
-
-        # Display existing data
-        org_data = get_hub_org_data()
-        if not org_data:
+        # ── Display ──────────────────────────────────────────────────
+        all_knowledge = hub_get_org_knowledge()
+        if not all_knowledge:
             st.info("No knowledge entries yet. Add your first entry above!")
         else:
-            st.markdown(f"**{len(org_data)} knowledge entries** — injected into every automation run")
+            cats_available = sorted(set(k["category"] for k in all_knowledge))
+            col_filter, col_search = st.columns([1, 2])
+            kb_filter = col_filter.selectbox("Category", ["All"] + cats_available, key="kb_cat_filter")
+            kb_search = col_search.text_input("🔍 Search", placeholder="Search knowledge...", key="kb_search")
 
-            # Filter by category
-            cats_available = sorted(set(d["category"] for d in org_data))
-            filter_cat = st.selectbox("Filter by category", ["All"] + cats_available, key="orgdb_filter")
-            filtered = org_data if filter_cat == "All" else [d for d in org_data if d["category"] == filter_cat]
+            filtered = all_knowledge
+            if kb_filter != "All":
+                filtered = [k for k in filtered if k["category"] == kb_filter]
+            if kb_search:
+                filtered = [k for k in filtered if kb_search.lower() in k["title"].lower()
+                            or kb_search.lower() in k["content"].lower()]
 
-            # Search
-            search = st.text_input("🔍 Search", placeholder="Search titles and content...", key="orgdb_search")
-            if search:
-                filtered = [d for d in filtered if search.lower() in d["title"].lower() or search.lower() in d["content"].lower()]
+            st.markdown(f"**{len(filtered)} entries** | Injected into every agent run automatically")
 
-            st.markdown(f"Showing {len(filtered)} entries")
-
-            for item in filtered:
-                with st.container():
-                    col_content, col_actions = st.columns([5, 1])
-                    with col_content:
-                        tags = json.loads(item.get("tags", "[]"))
-                        tag_str = " ".join([f"`{t}`" for t in tags]) if tags else ""
-                        st.markdown(f"""<div class="orgdb-card">
-<strong style="color:#f1f5f9;">{item['title']}</strong>
-<span style="color:#94a3b8;font-size:0.8rem;"> · {item['category']} · {item.get('added_by','?')} · {item['created_at'][:10]}</span>
-<br><span style="color:#cbd5e1;">{item['content']}</span>
-<br>{tag_str}
+            for entry in filtered:
+                tags = json.loads(entry.get("tags", "[]"))
+                tag_html = "".join([f'<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">{t}</span>' for t in tags])
+                col_e, col_del = st.columns([6, 1])
+                with col_e:
+                    st.markdown(f"""<div class="kb-entry">
+<strong style="color:#f1f5f9;">{entry['title']}</strong>
+<span style="color:#94a3b8;font-size:0.78rem;"> — {entry['category']} · Added by {entry['added_by_name']} · {entry['created_at'][:10]}</span><br>
+<span style="color:#d1d5db;font-size:0.9rem;">{entry['content']}</span><br>
+<div style="margin-top:6px;">{tag_html}</div>
 </div>""", unsafe_allow_html=True)
-                    with col_actions:
-                        if st.button("🗑️", key=f"del_org_{item['id']}", help="Delete this entry"):
-                            delete_hub_org_data(item["id"])
-                            st.rerun()
+                with col_del:
+                    if st.button("🗑️", key=f"del_kb_{entry['id']}", help="Remove entry"):
+                        hub_delete_org_knowledge(entry["id"])
+                        st.rerun()
 
+        # ── Context preview ─────────────────────────────────────────
         st.divider()
-        # Context preview
-        with st.expander("👁️ Preview: What agents see (org context string)", expanded=False):
-            ctx = build_org_context_string()
-            st.code(ctx if ctx else "No data in database yet", language="text")
-            st.caption(f"~{len(ctx)} characters injected into each agent prompt")
+        with st.expander("👁️ Preview: What agents see (full context string)", expanded=False):
+            knowledge = hub_get_org_knowledge()
+            if knowledge:
+                lines = ["━━━━━━━━━━ ORGANISATION CONTEXT ━━━━━━━━━━"]
+                by_cat = {}
+                for k in knowledge:
+                    by_cat.setdefault(k["category"], []).append(k)
+                for cat, items in by_cat.items():
+                    lines.append(f"\n[{cat.upper()}]")
+                    for item in items:
+                        lines.append(f"  • {item['title']}: {item['content']}")
+                ctx_str = "\n".join(lines)
+                st.code(ctx_str, language="text")
+                st.caption(f"~{len(ctx_str)} characters · {len(knowledge)} entries")
+            else:
+                st.info("No data added yet.")
 
-        # Bulk import
-        with st.expander("📥 Bulk Import (JSON)", expanded=False):
-            st.markdown("Paste a JSON array of entries to bulk-import:")
-            st.code('[{"category":"Strategy","title":"Key Metric","content":"Value here","tags":["strategy"]}]', language="json")
-            bulk_json = st.text_area("JSON data", height=150, key="bulk_import_json")
-            bulk_by = st.text_input("Added by", value=st.session_state.hub_member.get("name", ""), key="bulk_by")
-            if st.button("📥 Import", type="primary"):
+        # ── Bulk import ─────────────────────────────────────────────
+        st.divider()
+        with st.expander("📥 Bulk Import from JSON"):
+            st.markdown("Paste a JSON array. Each item needs: `category`, `title`, `content`. Optional: `tags` (array).")
+            st.code('[{"category":"Strategy & OKRs","title":"Revenue Target","content":"$5M ARR by Q4","tags":["revenue","q4"]}]', language="json")
+            bulk_data = st.text_area("Paste JSON here", height=150, key="bulk_json_import")
+            if st.button("📥 Import", type="primary", key="bulk_import_btn"):
                 try:
-                    items = json.loads(bulk_json)
+                    items = json.loads(bulk_data)
                     count = 0
                     for item in items:
-                        add_hub_org_data(
-                            item.get("category", "Custom"),
-                            item.get("title", ""),
-                            item.get("content", ""),
-                            "bulk_import",
-                            bulk_by or "member",
-                            item.get("tags", [])
+                        hub_add_org_knowledge(
+                            item.get("category","Other"),
+                            item.get("title",""),
+                            item.get("content",""),
+                            member["id"], member["name"],
+                            item.get("tags",[])
                         )
                         count += 1
                     st.success(f"✅ Imported {count} entries!")
@@ -4237,291 +4459,349 @@ When automations run, this context is automatically injected into every AI agent
                 except Exception as e:
                     st.error(f"Import failed: {e}")
 
-    # ═══════════════════════════════════════════════════════════
-    # TAB 3 — AUTOMATION BUILDER
-    # ═══════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 3 — AUTOMATIONS
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[2]:
         st.subheader("⚡ Automation Workflows")
-        st.markdown("Build and manage automation workflows. Each automation chains real agents with your org context and connected APIs.")
+        st.markdown("Build workflows by chaining agents in sequence. When run, each agent uses real API data + org context.")
 
-        # Create new automation
+        # ── Create ───────────────────────────────────────────────────
         with st.expander("➕ Create New Automation", expanded=False):
-            with st.form("new_automation"):
-                auto_name = st.text_input("Automation Name", placeholder="e.g. Daily Engineering Standup")
-                auto_desc = st.text_input("Description", placeholder="What does this automation do?")
-                all_agent_names = list(SUB_AGENTS.keys())
-                auto_agents = st.multiselect(
-                    "Agent Sequence (select in order of execution)",
-                    all_agent_names,
-                    format_func=lambda x: f"{SUB_AGENTS[x]['icon']} {SUB_AGENTS[x]['name']} ({x})",
-                    help="Agents run in sequence. Each agent's output informs the next."
-                )
-                auto_prompt = st.text_area("Goal / Prompt Template", height=100,
-                    placeholder="Describe what you want this automation to achieve. Be specific — the AI uses your org database + this prompt to guide each agent.")
-                auto_use_org = st.toggle("Inject org knowledge database context", value=True)
-                auto_by = st.text_input("Created by", value=st.session_state.hub_member.get("name", ""))
-                create_btn = st.form_submit_button("➕ Create Automation", type="primary")
-                if create_btn:
-                    if not auto_name.strip() or not auto_agents:
+            with st.form("create_auto"):
+                auto_cols = st.columns([1, 1])
+                with auto_cols[0]:
+                    a_name = st.text_input("Name", placeholder="e.g. Daily Engineering Standup")
+                    a_desc = st.text_input("Description", placeholder="What this automation does")
+                    a_use_org = st.toggle("Inject org knowledge database", value=True)
+                with auto_cols[1]:
+                    a_agents = st.multiselect(
+                        "Agent Sequence (runs in this order)",
+                        list(SUB_AGENTS.keys()),
+                        format_func=lambda x: f"{SUB_AGENTS[x]['icon']} {SUB_AGENTS[x]['name']} [{x}]",
+                        help="Select agents in execution order. Each agent's output passes to the next."
+                    )
+                a_goal = st.text_area("Default Goal / Prompt", height=100,
+                    placeholder="Describe what you want this automation to achieve. Be specific — use names, metrics, timeframes.")
+                create_auto_btn = st.form_submit_button("➕ Create Automation", type="primary")
+                if create_auto_btn:
+                    if not a_name.strip() or len(a_agents) == 0:
                         st.error("Name and at least one agent are required.")
                     else:
-                        save_hub_automation(auto_name, auto_desc, auto_agents, auto_prompt, auto_use_org, auto_by or "admin")
-                        st.success(f"✅ Automation '{auto_name}' created!")
+                        hub_save_automation(a_name, a_desc, a_agents, a_goal, a_use_org, member["id"], member["name"])
+                        st.success(f"✅ Automation '{a_name}' created!")
                         st.rerun()
 
         st.divider()
 
-        # List automations
-        automations = get_hub_automations()
+        # ── List automations ─────────────────────────────────────────
+        automations = hub_get_automations()
+        my_connections = hub_get_api_connections(member["id"])
+        connected_svc_ids = {c["service"] for c in my_connections}
+
         if not automations:
             st.info("No automations yet. Create one above!")
         else:
-            # Get connected services for badge display
-            existing_keys = {k["service"]: k for k in get_hub_api_keys()}
-            connected_svcs = {s for s, d in existing_keys.items() if d.get("connected", 0)}
-
-            agent_service_map = {"github-agent": "github", "slack-agent": "slack", "notion-agent": "notion",
-                                  "hubspot-agent": "hubspot", "jira-agent": "jira", "linear-agent": "linear",
-                                  "airtable-agent": "airtable"}
-
             for auto in automations:
-                agents_seq = json.loads(auto.get("agents_sequence", "[]"))
+                agents_seq = json.loads(auto.get("agents_sequence","[]"))
                 with st.container():
-                    st.markdown(f'<div class="auto-card">', unsafe_allow_html=True)
-                    col_main, col_actions = st.columns([4, 1])
+                    st.markdown(f'<div class="auto-block">', unsafe_allow_html=True)
+                    col_main, col_actions = st.columns([5, 1])
                     with col_main:
-                        st.markdown(f"**{auto['name']}**")
+                        st.markdown(f"#### {auto['name']}")
                         if auto.get("description"):
                             st.caption(auto["description"])
-                        # Agent badges with API status
-                        badge_html = ""
+                        # Per-agent badges showing real vs AI
+                        badge_parts = []
+                        real_count = 0
                         for a in agents_seq:
-                            svc = agent_service_map.get(a, "")
                             ainfo = SUB_AGENTS.get(a, {})
-                            if svc in connected_svcs:
-                                badge_html += f'<span class="realapi-badge">{ainfo.get("icon","🤖")} {ainfo.get("name",a)} 🔌</span> '
+                            svc = AGENT_TO_SERVICE.get(a, "")
+                            if svc in connected_svc_ids:
+                                badge_parts.append(f'<span class="verified-badge">{ainfo.get("icon","🤖")} {ainfo.get("name",a)} 🔌</span>')
+                                real_count += 1
                             else:
-                                badge_html += f'<span class="groq-badge">{ainfo.get("icon","🤖")} {ainfo.get("name",a)}</span> '
-                        st.markdown(badge_html, unsafe_allow_html=True)
-                        meta_parts = []
-                        if auto.get("run_count", 0): meta_parts.append(f"Runs: {auto['run_count']}")
-                        if auto.get("last_run"): meta_parts.append(f"Last: {auto['last_run'][:10]}")
-                        if auto.get("use_org_data"): meta_parts.append("📚 Uses org DB")
-                        if meta_parts:
-                            st.caption(" · ".join(meta_parts))
+                                badge_parts.append(f'<span class="ai-badge">{ainfo.get("icon","🤖")} {ainfo.get("name",a)}</span>')
+                        st.markdown(" ".join(badge_parts), unsafe_allow_html=True)
+                        meta_line = []
+                        if real_count: meta_line.append(f"🔌 {real_count} real API agents")
+                        if auto.get("use_org_data"): meta_line.append("📚 Uses org database")
+                        if auto.get("run_count"): meta_line.append(f"Runs: {auto['run_count']}")
+                        if auto.get("last_run_at"): meta_line.append(f"Last: {auto['last_run_at'][:10]}")
+                        meta_line.append(f"By: {auto.get('created_by_name','?')}")
+                        st.caption(" · ".join(meta_line))
                     with col_actions:
-                        if st.button("🗑️ Delete", key=f"del_auto_{auto['id']}", use_container_width=True):
-                            delete_hub_automation(auto["id"])
-                            st.success("Deleted")
-                            st.rerun()
+                        if is_admin or auto.get("created_by_id") == member["id"]:
+                            if st.button("🗑️", key=f"del_auto_{auto['id']}", use_container_width=True, help="Delete"):
+                                hub_delete_automation(auto["id"])
+                                st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ═══════════════════════════════════════════════════════════
-    # TAB 4 — RUN LIVE (The Big One)
-    # ═══════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 4 — RUN LIVE
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[3]:
         st.subheader("▶ Run Live Automation")
-        st.markdown("Select an automation, set a goal, and launch. Real API data is fetched and combined with your org context to produce **real intelligence**.")
+        st.markdown("Real API data is fetched live from connected services. Org knowledge is injected. A full synthesis report is generated.")
 
-        automations = get_hub_automations()
-        existing_keys_map = {k["service"]: k for k in get_hub_api_keys()}
+        if not api_key:
+            st.error("🔑 Add your Groq API key in the sidebar first.")
+            st.stop()
+
+        automations = hub_get_automations()
+        my_connections = hub_get_api_connections(member["id"])
+        connected_svc_ids = {c["service"] for c in my_connections}
+        conn_by_service   = {c["service"]: c for c in my_connections}
 
         if not automations:
-            st.warning("No automations configured. Go to **Automations** tab to create one.")
+            st.warning("No automations configured. Go to the **Automations** tab to create one.")
         else:
             # Select automation
-            auto_options = {a["name"]: a for a in automations}
-            sel_auto_name = st.selectbox("Select Automation", list(auto_options.keys()))
-            sel_auto = auto_options[sel_auto_name]
-            agents_seq = json.loads(sel_auto.get("agents_sequence", "[]"))
+            auto_map = {a["name"]: a for a in automations}
+            sel_name = st.selectbox("Select Automation", list(auto_map.keys()), key="run_auto_select")
+            sel_auto = auto_map[sel_name]
+            agents_seq = json.loads(sel_auto.get("agents_sequence","[]"))
 
-            # Show what will happen
+            # Pre-flight panel
+            st.markdown("### 📋 Pre-flight Check")
             with st.container(border=True):
-                st.markdown(f"**{sel_auto['name']}**")
+                st.markdown(f"**Automation:** {sel_auto['name']}")
                 if sel_auto.get("description"):
                     st.caption(sel_auto["description"])
+                st.markdown("")
 
-                agent_service_map = {"github-agent": "github", "slack-agent": "slack", "notion-agent": "notion",
-                                      "hubspot-agent": "hubspot", "jira-agent": "jira", "linear-agent": "linear",
-                                      "airtable-agent": "airtable"}
-                connected_svcs = {s for s, d in existing_keys_map.items() if d.get("connected", 0)}
-
-                st.markdown("**Execution plan:**")
-                for i, a in enumerate(agents_seq):
+                preflight_rows = []
+                for a in agents_seq:
                     ainfo = SUB_AGENTS.get(a, {})
-                    svc = agent_service_map.get(a, "")
-                    real_badge = "🔌 **REAL API**" if svc in connected_svcs else "🤖 AI-generated"
-                    st.markdown(f"  **{i+1}.** {ainfo.get('icon','')} {ainfo.get('name', a)} — {real_badge}")
+                    svc   = AGENT_TO_SERVICE.get(a, "")
+                    if svc and svc in connected_svc_ids:
+                        verified = json.loads(conn_by_service[svc].get("verified_data","{}"))
+                        status_html = f'<span class="verified-badge">🔌 REAL API — {verified.get("display","Connected")}</span>'
+                        preflight_rows.append((ainfo.get("icon",""), ainfo.get("name",a), status_html))
+                    else:
+                        missing_msg = f"{SERVICES_CONFIG.get(svc,{}).get('name',svc)} not connected" if svc else "No API needed"
+                        status_html = f'<span class="ai-badge">🤖 AI-generated ({missing_msg})</span>'
+                        preflight_rows.append((ainfo.get("icon",""), ainfo.get("name",a), status_html))
+
+                for icon, name, status in preflight_rows:
+                    st.markdown(f"**{icon} {name}** — {status}", unsafe_allow_html=True)
 
                 if sel_auto.get("use_org_data"):
-                    org_count = len(get_hub_org_data())
-                    st.markdown(f"  📚 **Org context:** {org_count} knowledge entries will be injected")
+                    kb_count = len(hub_get_org_knowledge())
+                    st.markdown(f"📚 **Org knowledge:** {kb_count} entries will be injected into all agents")
 
-            # Run by
-            run_by = st.text_input("Running as (your name)", value=st.session_state.hub_member.get("name", "Guest"))
+            # Goal input
+            st.markdown("### 🎯 Set Goal for This Run")
+            goal_default = sel_auto.get("goal_template","") or f"Run {sel_auto['name']} and produce a comprehensive report."
+            run_goal = st.text_area(
+                "Goal (customise for this run)",
+                value=goal_default,
+                height=100,
+                help="This goal, plus your org knowledge database, is what drives the entire automation."
+            )
 
-            # Goal override
-            goal_preset = sel_auto.get("prompt_template", "") or f"Run the {sel_auto['name']} automation"
-            goal = st.text_area("Goal / Task (customise for this run)", value=goal_preset, height=100,
-                help="Customise the goal for this specific run. The org database context will be automatically appended.")
+            # Launch
+            col_launch, _ = st.columns([2, 3])
+            launch = col_launch.button("🚀 LAUNCH LIVE AUTOMATION", type="primary", use_container_width=True)
 
-            # Launch button
-            col_launch, col_spacer = st.columns([2, 3])
-            with col_launch:
-                launch_btn = st.button("🚀 LAUNCH AUTOMATION", type="primary", use_container_width=True)
-
-            if launch_btn:
-                if not goal.strip():
+            if launch:
+                if not run_goal.strip():
                     st.error("Please enter a goal.")
                 else:
-                    # Progress display
-                    progress_container = st.container()
-                    log_placeholder = progress_container.empty()
-                    live_logs = []
+                    st.markdown("---")
+                    st.markdown("### ⚡ Live Execution")
 
-                    def update_log(msg):
-                        live_logs.append(msg)
-                        log_text = "\n".join([f"[{l}]" if i == len(live_logs)-1 else l for i, l in enumerate(live_logs)])
-                        log_placeholder.code(log_text, language="text")
+                    log_box = st.empty()
+                    live_log_lines = []
 
-                    update_log("🚀 Launching automation...")
+                    def stream_log(msg):
+                        live_log_lines.append(msg)
+                        html_lines = []
+                        for line in live_log_lines[-20:]:
+                            css = "run-log-real" if ("REAL" in line or "✅" in line or "🔌" in line) \
+                                  else "run-log-error" if "❌" in line or "Failed" in line \
+                                  else "run-log-line"
+                            html_lines.append(f'<div class="{css}">{line}</div>')
+                        log_box.markdown(
+                            f'<div style="background:#020c02;border:1px solid #1e3a1e;border-radius:8px;padding:14px;font-family:monospace;max-height:340px;overflow-y:auto;">{"".join(html_lines)}</div>',
+                            unsafe_allow_html=True
+                        )
 
                     try:
-                        result = run_live_hub_automation(
-                            groq_api_key=api_key,
+                        result = hub_run_automation(
+                            groq_key=api_key,
                             automation=sel_auto,
-                            goal=goal,
-                            run_by=run_by,
-                            api_keys_map=existing_keys_map,
-                            progress_cb=update_log,
+                            goal=run_goal,
+                            member=member,
+                            all_connections=my_connections,
+                            progress_cb=stream_log,
                         )
-                        log_placeholder.empty()
+                        log_box.empty()
 
-                        # Results display
-                        st.success(f"✅ Automation completed! Run ID: `{result['run_id'][:12]}`")
-
+                        # Results
                         tu = result["token_usage"]
-                        c1, c2, c3, c4 = st.columns(4)
-                        c1.metric("Agents Run", len(result["agents_run"]))
-                        c2.metric("Total Tokens", tu.get("total", 0))
-                        c3.metric("Est. Cost", f"${tu.get('approx_cost_usd', 0)}")
-                        real_count = sum(1 for a, r in result.get("sub_results", {}).items()
-                                        if r.get("_hub_meta", {}).get("real_api_used"))
-                        c4.metric("Real API Calls", real_count)
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("Agents Run", len(result["agents_run"]))
+                        m2.metric("🔌 Real API Calls", result["real_api_calls"])
+                        m3.metric("Tokens Used", f"{tu['total']:,}")
+                        m4.metric("Est. Cost", f"${tu['cost_usd']}")
 
-                        # Final report
-                        result_tabs = st.tabs(["📋 Intelligence Report", "🔬 Agent Outputs", "📜 Run Log"])
+                        result_tabs = st.tabs(["📋 Intelligence Report", "🔬 Per-Agent Results", "📜 Execution Log"])
 
                         with result_tabs[0]:
-                            st.markdown("### 📋 Final Intelligence Report")
                             st.markdown(result["final_report"])
                             st.download_button(
-                                "⬇️ Download Report (MD)",
+                                "⬇️ Download Report (.md)",
                                 data=result["final_report"],
-                                file_name=f"saap_hub_{datetime.date.today()}.md",
+                                file_name=f"hub_report_{datetime.date.today()}.md",
                                 mime="text/markdown"
                             )
 
                         with result_tabs[1]:
-                            for agent_name, agent_result in result.get("sub_results", {}).items():
-                                ainfo = SUB_AGENTS.get(agent_name, {})
-                                meta = agent_result.pop("_hub_meta", {}) if "_hub_meta" in agent_result else {}
-                                with st.expander(f"{ainfo.get('icon','')} {ainfo.get('name', agent_name)} {'🔌 REAL API' if meta.get('real_api_used') else '🤖 AI'}", expanded=False):
-                                    if meta.get("real_api_used"):
-                                        st.success(f"🔌 Used real {meta.get('service','').upper()} API data")
-                                    st.json(agent_result)
+                            for aname, agent_result in result["agent_results"].items():
+                                ainfo = SUB_AGENTS.get(aname, {})
+                                meta  = agent_result.get("_meta", {})
+                                clean = {k:v for k,v in agent_result.items() if not k.startswith("_")}
+                                label = f"{ainfo.get('icon','')} {ainfo.get('name', aname)}"
+                                badge = "🔌 REAL API DATA" if meta.get("real_api") else "🤖 AI-generated"
+                                with st.expander(f"{label} — {badge}", expanded=False):
+                                    if meta.get("real_api"):
+                                        st.success(f"✅ Real live data from {SERVICES_CONFIG.get(meta.get('service',''),{}).get('name', meta.get('service','?'))} API")
+                                    st.json(clean)
 
                         with result_tabs[2]:
-                            st.markdown("### 📜 Execution Log")
-                            for log_entry in result.get("agent_logs", []):
-                                st.text(f"[{log_entry.get('time','')}] {log_entry.get('msg','')}")
+                            for entry in result["agent_logs"]:
+                                t = entry.get("time","")
+                                msg = entry.get("msg","")
+                                color = "#4ade80" if ("✅" in msg or "🔌" in msg or "REAL" in msg) \
+                                        else "#f87171" if "❌" in msg \
+                                        else "#94a3b8"
+                                st.markdown(f'<span style="color:{color};font-family:monospace;font-size:0.83rem;">[{t}] {msg}</span>', unsafe_allow_html=True)
 
                     except Exception as e:
                         st.error(f"Automation failed: {e}")
                         import traceback
-                        st.code(traceback.format_exc())
+                        with st.expander("Error details"):
+                            st.code(traceback.format_exc())
 
-    # ═══════════════════════════════════════════════════════════
-    # TAB 5 — RUN HISTORY
-    # ═══════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 5 — RUN HISTORY
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[4]:
-        st.subheader("📊 Automation Run History")
-        runs = get_hub_runs(50)
+        st.subheader("📊 Run History")
 
+        runs = hub_get_runs(50)
         if not runs:
-            st.info("No runs yet. Go to **Run Live** tab to launch your first automation!")
+            st.info("No runs yet. Go to **Run Live** to launch your first automation!")
         else:
-            # Summary metrics
             total_tokens = sum(json.loads(r.get("token_usage","{}")).get("total",0) for r in runs)
-            total_cost = sum(json.loads(r.get("token_usage","{}")).get("approx_cost_usd",0) for r in runs)
+            total_cost   = sum(json.loads(r.get("token_usage","{}")).get("cost_usd",0) for r in runs)
+            total_real   = sum(r.get("real_api_calls",0) for r in runs)
+
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Total Runs", len(runs))
-            m2.metric("Completed", sum(1 for r in runs if r.get("status") == "COMPLETED"))
+            m2.metric("🔌 Real API Calls", total_real)
             m3.metric("Total Tokens", f"{total_tokens:,}")
-            m4.metric("Total Cost", f"${round(total_cost, 4)}")
+            m4.metric("Total Cost", f"${round(total_cost,4)}")
 
             st.divider()
 
             for run in runs:
-                tu = json.loads(run.get("token_usage", "{}"))
-                status_icon = "✅" if run.get("status") == "COMPLETED" else "❌"
-                with st.expander(f"{status_icon} **{run.get('automation_name','?')}** — {run.get('created_at','')[:16]} — by {run.get('run_by','?')}"):
-                    st.caption(f"Run ID: `{run['id'][:16]}` | Tokens: {tu.get('total',0):,} | Cost: ${tu.get('approx_cost_usd',0)}")
+                tu = json.loads(run.get("token_usage","{}"))
+                real_calls = run.get("real_api_calls",0)
+                with st.expander(
+                    f"✅ **{run.get('automation_name','?')}** — {run.get('created_at','')[:16]} — {run.get('run_by_name','?')}"
+                    + (f" — 🔌 {real_calls} real calls" if real_calls else ""),
+                    expanded=False
+                ):
+                    st.caption(f"Run ID: `{run['id'][:16]}` | Tokens: {tu.get('total',0):,} | Cost: ${tu.get('cost_usd',0)}")
                     if run.get("goal"):
-                        st.markdown(f"**Goal:** {run['goal'][:200]}")
-                    if run.get("final_output"):
-                        st.markdown("**Report:**")
-                        st.markdown(run["final_output"][:2000])
-                        if len(run.get("final_output","")) > 2000:
-                            st.caption("(truncated — download for full report)")
-                    if run.get("agent_logs"):
-                        logs = json.loads(run["agent_logs"])
-                        with st.expander("📜 Execution log"):
-                            for l in logs:
-                                st.text(f"[{l.get('time','')}] {l.get('msg','')}")
+                        st.markdown(f"**Goal:** {run['goal'][:250]}")
 
-    # ═══════════════════════════════════════════════════════════
-    # TAB 6 — MEMBERS (multi-user org access)
-    # ═══════════════════════════════════════════════════════════
+                    report_tabs = st.tabs(["📋 Report", "📜 Log"])
+                    with report_tabs[0]:
+                        report = run.get("final_report","")
+                        if report:
+                            st.markdown(report[:3000])
+                            if len(report) > 3000:
+                                st.caption("(truncated — download for full)")
+                            st.download_button("⬇️ Download", data=report,
+                                file_name=f"run_{run['id'][:8]}.md", mime="text/markdown",
+                                key=f"dl_{run['id']}")
+                        else:
+                            st.info("No report saved.")
+                    with report_tabs[1]:
+                        logs = json.loads(run.get("agent_logs","[]"))
+                        for l in logs:
+                            msg = l.get("msg","")
+                            color = "#4ade80" if ("✅" in msg or "🔌" in msg) else "#f87171" if "❌" in msg else "#94a3b8"
+                            st.markdown(f'<span style="color:{color};font-family:monospace;font-size:0.82rem;">[{l.get("time","")}] {msg}</span>', unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════════════════
+    #  TAB 6 — MEMBERS
+    # ════════════════════════════════════════════════════════════════
     with hub_tabs[5]:
         st.subheader("👥 Organisation Members")
-        st.markdown("Manage who can access the Hub, feed the database, and run automations.")
+        st.markdown("Manage who has access to the Hub. Each member logs in with their own email and password.")
 
-        members = get_hub_members()
+        members = hub_get_members()
+
+        # Current members
         st.markdown(f"**{len(members)} members** with Hub access")
-
-        for member in members:
-            perms = json.loads(member.get("permissions", "[]"))
-            perm_str = " · ".join([f"`{p}`" for p in perms])
-            with st.container(border=True):
-                col_info, col_actions = st.columns([3, 1])
+        for m in members:
+            perms_list = json.loads(m.get("permissions","[]"))
+            perm_badges = "".join([f'<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 7px;font-size:0.75rem;margin:2px;">{p}</span>' for p in perms_list])
+            is_me = m["id"] == member["id"]
+            with st.container():
+                col_info, col_del = st.columns([5, 1])
                 with col_info:
-                    st.markdown(f"**{member['name']}** — {member['role']}")
-                    st.caption(f"Permissions: {perm_str}")
+                    st.markdown(f"""<div class="member-chip">
+<div class="member-avatar" style="background:{m.get('avatar_color','#3b82f6')};width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;font-size:0.9rem;vertical-align:middle;">{m['name'][0].upper()}</div>
+<strong style="color:#f1f5f9;margin-left:8px;">{m['name']}</strong>
+{'<span style="color:#fbbf24;font-size:0.78rem;"> (you)</span>' if is_me else ""}
+<span style="color:#6b7280;font-size:0.82rem;"> · {m.get('email','')} · {m.get('role','')} · {m.get('department','')}</span><br>
+<div style="margin-top:6px;">{perm_badges}</div>
+</div>""", unsafe_allow_html=True)
+                with col_del:
+                    if is_admin and not is_me and m.get("role") != "admin":
+                        if st.button("🗑️", key=f"del_mem_{m['id']}", help="Remove member"):
+                            hub_delete_member(m["id"])
+                            st.rerun()
 
         st.divider()
-        st.markdown("### ➕ Add Team Member")
-        with st.form("add_member"):
-            col1, col2 = st.columns(2)
-            with col1:
-                new_name = st.text_input("Full Name")
-                new_role = st.selectbox("Role", ["Analyst", "Engineer", "Manager", "Sales", "Admin", "Viewer"])
-            with col2:
-                new_pin = st.text_input("PIN (4+ digits)", type="password", placeholder="e.g. 1234")
-                new_perms = st.multiselect("Permissions", ["run", "view", "feed_db", "manage_keys", "admin"],
-                    default=["run", "view", "feed_db"])
-            add_mem_btn = st.form_submit_button("➕ Add Member", type="primary")
-            if add_mem_btn:
-                if not new_name.strip() or not new_pin.strip():
-                    st.error("Name and PIN are required.")
-                elif len(new_pin) < 4:
-                    st.error("PIN must be at least 4 characters.")
-                else:
-                    add_hub_member(new_name, new_role, new_pin, new_perms)
-                    st.success(f"✅ {new_name} added with PIN set!")
-                    st.rerun()
 
-        st.divider()
-        st.info("💡 Members can log in from the sidebar member switcher (coming soon). Currently all members share the same session.")
-        st.info("🔐 PINs are stored as SHA-256 hashes in the local database — never in plaintext.")
+        # Add new member
+        if is_admin:
+            st.markdown("### ➕ Add New Member")
+            PERMISSION_OPTIONS = ["run", "view", "feed_db", "manage_keys", "admin"]
+            AVATAR_COLORS = ["#3b82f6","#8b5cf6","#22c55e","#f59e0b","#ef4444","#06b6d4","#ec4899","#f97316"]
 
+            with st.form("add_member_form"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    m_name  = st.text_input("Full Name *", placeholder="Jane Smith")
+                    m_email = st.text_input("Email * (used to log in)", placeholder="jane@yourorg.com")
+                    m_pass  = st.text_input("Password *", type="password", placeholder="Minimum 6 characters")
+                with c2:
+                    m_role  = st.selectbox("Role", ["member","analyst","engineer","manager","sales","admin"])
+                    m_dept  = st.text_input("Department", placeholder="Engineering, Sales, Product...")
+                    m_color = st.selectbox("Avatar Colour", AVATAR_COLORS,
+                        format_func=lambda c: f"● {c}")
+                m_perms = st.multiselect("Permissions",
+                    PERMISSION_OPTIONS, default=["run","view","feed_db"])
+
+                add_member_btn = st.form_submit_button("➕ Add Member", type="primary")
+                if add_member_btn:
+                    if not m_name.strip() or not m_email.strip() or not m_pass.strip():
+                        st.error("Name, email, and password are required.")
+                    elif len(m_pass) < 6:
+                        st.error("Password must be at least 6 characters.")
+                    elif hub_get_member_by_email(m_email.strip()):
+                        st.error("A member with that email already exists.")
+                    else:
+                        hub_add_member(m_name.strip(), m_email.strip(), m_pass.strip(),
+                                        m_role, m_dept.strip(), m_perms, m_color, member["name"])
+                        st.success(f"✅ {m_name} added! They can now log in with {m_email} and the password you set.")
+                        st.rerun()
+        else:
+            st.info("Only admins can add or remove members.")
