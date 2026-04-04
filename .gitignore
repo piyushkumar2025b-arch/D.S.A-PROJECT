@@ -1,0 +1,18 @@
+# Streamlit Secrets
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+venv/
+ENV/
+env/
+.pytest_cache/
+
+# SQLite (if used)
+*.db
+*.sqlite3
