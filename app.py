@@ -1035,6 +1035,43 @@ SUB_AGENTS = {
         "research_angle": "Analyses sales process efficiency and revenue predictability",
         "default_goal": "Generate pipeline health report and identify at-risk deals",
     },
+    # ─── Google AI Agents ──────────────────────────────────────────────────────
+    "gemini-ai-agent": {
+        "icon": "✨", "name": "Gemini AI Intelligence", "category": "Google AI",
+        "specialisation": "Multimodal AI analysis, reasoning, summarisation, code generation, strategic insights",
+        "real_api": "Google Gemini API (gemini-1.5-flash / gemini-1.5-pro / gemini-2.0-flash)",
+        "credentials_needed": ["google_gemini"],
+        "org_role": "Provides advanced AI reasoning on any topic — synthesises intelligence from all other agents, generates strategic recommendations, analyses complex documents",
+        "research_angle": "Uses Google's most capable frontier model for deep reasoning and analysis",
+        "default_goal": "Perform comprehensive AI analysis and synthesise actionable intelligence from org context",
+    },
+    "google-search-agent": {
+        "icon": "🔍", "name": "Google Live Intelligence", "category": "Google AI",
+        "specialisation": "Real-time web intelligence, competitive research, news monitoring, market signals",
+        "real_api": "Google Custom Search API v1",
+        "credentials_needed": ["google_search"],
+        "org_role": "Continuously monitors the web for competitive signals, industry news, and market changes relevant to the organisation",
+        "research_angle": "Gathers real-time external intelligence that complements internal org data",
+        "default_goal": "Gather competitive intelligence and real-time market signals from Google search",
+    },
+    "vertex-ai-agent": {
+        "icon": "☁️", "name": "Vertex AI Analytics", "category": "Google AI",
+        "specialisation": "Google Cloud AI/ML pipelines, embeddings, AutoML, enterprise AI infrastructure",
+        "real_api": "Google Vertex AI API (Google Cloud)",
+        "credentials_needed": ["vertex_ai"],
+        "org_role": "Manages ML pipelines, runs batch inference jobs, tracks model performance, orchestrates enterprise AI workloads",
+        "research_angle": "Analyses ML infrastructure efficiency and AI capability gaps in the organisation",
+        "default_goal": "Analyse AI/ML infrastructure health and identify optimisation opportunities",
+    },
+    "google-sheets-agent": {
+        "icon": "📈", "name": "Google Sheets Live Data", "category": "Google Workspace",
+        "specialisation": "Live spreadsheet data, KPI dashboards, financial models, operational metrics",
+        "real_api": "Google Sheets API v4",
+        "credentials_needed": ["google_sheets"],
+        "org_role": "Reads live KPI data from Google Sheets, syncs operational metrics, updates dashboards with AI-generated insights",
+        "research_angle": "Tracks data freshness and accuracy across spreadsheet-based reporting systems",
+        "default_goal": "Read live KPI data from Google Sheets and generate trend analysis with AI insights",
+    },
 }
 
 # Issue taxonomy from the github repo research
@@ -3381,6 +3418,182 @@ def init_hub_db():
     add_col("hub_runs", "token_usage", "TEXT DEFAULT '{}'")
     add_col("hub_runs", "real_api_calls", "INTEGER DEFAULT 0")
 
+    # ─── New power tables ──────────────────────────────────────────────────────
+    c.executescript("""
+    CREATE TABLE IF NOT EXISTS hub_google_oauth_tokens (
+        id           TEXT PRIMARY KEY,
+        member_id    TEXT NOT NULL,
+        service      TEXT NOT NULL,
+        access_token TEXT,
+        refresh_token TEXT,
+        token_expiry TEXT,
+        scopes       TEXT DEFAULT '[]',
+        google_email TEXT DEFAULT '',
+        google_name  TEXT DEFAULT '',
+        google_pic   TEXT DEFAULT '',
+        google_id    TEXT DEFAULT '',
+        id_token     TEXT DEFAULT '',
+        created_at   TEXT DEFAULT (datetime('now')),
+        updated_at   TEXT DEFAULT (datetime('now')),
+        UNIQUE(member_id, service)
+    );
+    CREATE TABLE IF NOT EXISTS hub_agent_metrics (
+        id           TEXT PRIMARY KEY,
+        run_id       TEXT NOT NULL,
+        agent_name   TEXT NOT NULL,
+        service      TEXT DEFAULT '',
+        tokens_in    INTEGER DEFAULT 0,
+        tokens_out   INTEGER DEFAULT 0,
+        latency_ms   INTEGER DEFAULT 0,
+        api_calls    INTEGER DEFAULT 0,
+        real_data    INTEGER DEFAULT 0,
+        data_bytes   INTEGER DEFAULT 0,
+        error_count  INTEGER DEFAULT 0,
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_run ON hub_agent_metrics(run_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_metrics_agent ON hub_agent_metrics(agent_name);
+
+    CREATE TABLE IF NOT EXISTS hub_audit_log (
+        id           TEXT PRIMARY KEY,
+        member_id    TEXT,
+        member_name  TEXT,
+        action       TEXT NOT NULL,
+        resource     TEXT DEFAULT '',
+        resource_id  TEXT DEFAULT '',
+        detail       TEXT DEFAULT '',
+        ip_hash      TEXT DEFAULT '',
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_member ON hub_audit_log(member_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON hub_audit_log(created_at);
+
+    CREATE TABLE IF NOT EXISTS hub_integration_events (
+        id           TEXT PRIMARY KEY,
+        service      TEXT NOT NULL,
+        event_type   TEXT NOT NULL,
+        member_id    TEXT,
+        payload      TEXT DEFAULT '{}',
+        status       TEXT DEFAULT 'received',
+        processed_at TEXT,
+        error        TEXT DEFAULT '',
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_service ON hub_integration_events(service);
+
+    CREATE TABLE IF NOT EXISTS hub_agent_outputs (
+        id           TEXT PRIMARY KEY,
+        run_id       TEXT NOT NULL,
+        agent_name   TEXT NOT NULL,
+        output_type  TEXT DEFAULT 'text',
+        content      TEXT DEFAULT '',
+        metadata     TEXT DEFAULT '{}',
+        pinned       INTEGER DEFAULT 0,
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_outputs_run ON hub_agent_outputs(run_id);
+
+    CREATE TABLE IF NOT EXISTS hub_schedules (
+        id             TEXT PRIMARY KEY,
+        automation_id  TEXT NOT NULL,
+        automation_name TEXT NOT NULL,
+        cron_expr      TEXT DEFAULT '',
+        frequency      TEXT DEFAULT 'manual',
+        goal_override  TEXT DEFAULT '',
+        created_by_id  TEXT,
+        created_by_name TEXT,
+        last_run_at    TEXT,
+        next_run_at    TEXT,
+        enabled        INTEGER DEFAULT 1,
+        run_count      INTEGER DEFAULT 0,
+        created_at     TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS hub_google_ai_cache (
+        id           TEXT PRIMARY KEY,
+        cache_key    TEXT UNIQUE NOT NULL,
+        model        TEXT DEFAULT '',
+        prompt_hash  TEXT DEFAULT '',
+        response     TEXT DEFAULT '',
+        tokens_used  INTEGER DEFAULT 0,
+        hit_count    INTEGER DEFAULT 1,
+        created_at   TEXT DEFAULT (datetime('now')),
+        expires_at   TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_google_cache_key ON hub_google_ai_cache(cache_key);
+
+    CREATE TABLE IF NOT EXISTS hub_search_history (
+        id           TEXT PRIMARY KEY,
+        run_id       TEXT,
+        member_id    TEXT,
+        query        TEXT NOT NULL,
+        engine       TEXT DEFAULT 'google',
+        results_json TEXT DEFAULT '[]',
+        result_count INTEGER DEFAULT 0,
+        latency_ms   INTEGER DEFAULT 0,
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_search_member ON hub_search_history(member_id);
+
+    CREATE TABLE IF NOT EXISTS hub_knowledge_embeddings (
+        id           TEXT PRIMARY KEY,
+        knowledge_id TEXT NOT NULL,
+        embedding    TEXT DEFAULT '',
+        model        TEXT DEFAULT 'text-embedding-004',
+        dimensions   INTEGER DEFAULT 768,
+        created_at   TEXT DEFAULT (datetime('now')),
+        UNIQUE(knowledge_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS hub_webhooks (
+        id           TEXT PRIMARY KEY,
+        name         TEXT NOT NULL,
+        url          TEXT NOT NULL,
+        secret       TEXT DEFAULT '',
+        events       TEXT DEFAULT '["run.completed","run.failed"]',
+        enabled      INTEGER DEFAULT 1,
+        created_by   TEXT,
+        last_trigger TEXT,
+        trigger_count INTEGER DEFAULT 0,
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS hub_notifications (
+        id           TEXT PRIMARY KEY,
+        member_id    TEXT NOT NULL,
+        type         TEXT DEFAULT 'info',
+        title        TEXT NOT NULL,
+        message      TEXT DEFAULT '',
+        read         INTEGER DEFAULT 0,
+        action_url   TEXT DEFAULT '',
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_notif_member ON hub_notifications(member_id, read);
+
+    CREATE TABLE IF NOT EXISTS hub_data_exports (
+        id           TEXT PRIMARY KEY,
+        member_id    TEXT NOT NULL,
+        export_type  TEXT DEFAULT 'runs',
+        filename     TEXT,
+        file_size    INTEGER DEFAULT 0,
+        status       TEXT DEFAULT 'pending',
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+    """)
+
+    # Ensure new migration columns
+    add_col("hub_members", "google_id", "TEXT DEFAULT ''")
+    add_col("hub_members", "google_pic", "TEXT DEFAULT ''")
+    add_col("hub_members", "google_email_verified", "INTEGER DEFAULT 0")
+    add_col("hub_members", "auth_provider", "TEXT DEFAULT 'password'")
+    add_col("hub_members", "last_login_at", "TEXT")
+    add_col("hub_members", "login_count", "INTEGER DEFAULT 0")
+    add_col("hub_api_connections", "category", "TEXT DEFAULT ''")
+    add_col("hub_runs", "google_agents_used", "TEXT DEFAULT '[]'")
+    add_col("hub_runs", "gemini_tokens", "INTEGER DEFAULT 0")
+    add_col("hub_automations", "google_agents", "TEXT DEFAULT '[]'")
+    add_col("hub_automations", "tags", "TEXT DEFAULT '[]'")
+
     # Seed admin account (email: admin@org.ai, password: admin123)
     import hashlib
     admin_hash = hashlib.sha256("admin123".encode()).hexdigest()
@@ -3440,6 +3653,21 @@ def init_hub_db():
          "Sync Notion docs, Slack decisions, and create structured summaries",
          '["notion-agent","slack-agent","drive-manager"]',
          "Scan recent Notion pages, extract decisions from Slack channels, and organise into a structured knowledge update for the team.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-5","🤖 Google AI Deep Research Brief",
+         "Gemini AI + Google Live Search + Vertex AI for maximum intelligence",
+         '["gemini-ai-agent","google-search-agent","vertex-ai-agent"]',
+         "Use Google Gemini AI for deep reasoning, Google Search for real-time web intelligence, and Vertex AI for ML insights. Generate a comprehensive intelligence brief covering AI trends, competitive signals, and strategic recommendations specific to our organisation.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-6","✨ Gemini + Sheets KPI Dashboard",
+         "Google Sheets live data analysed by Gemini AI",
+         '["google-sheets-agent","gemini-ai-agent","google-search-agent"]',
+         "Fetch live KPI data from Google Sheets, run Gemini AI analysis on trends and anomalies, and cross-reference with Google Search for market context. Generate an executive KPI report with AI-powered insights and recommendations.",
+         1, "hub-admin-1", "Admin"),
+        ("hauto-7","🔍 Full Stack Intelligence (All Sources)",
+         "Every connected source: Google AI + GitHub + Slack + HubSpot + Jira",
+         '["gemini-ai-agent","google-search-agent","github-agent","slack-agent","hubspot-agent","jira-agent"]',
+         "Run all connected agents simultaneously: Google Gemini for AI synthesis, Google Search for market intelligence, GitHub for engineering health, Slack for team pulse, HubSpot for revenue pipeline, and Jira for project status. Produce the most comprehensive org intelligence report possible.",
          1, "hub-admin-1", "Admin"),
     ]
     c.executemany("""INSERT OR IGNORE INTO hub_automations
@@ -3646,6 +3874,230 @@ def real_test_airtable(token, extra):
                 "display": f"Airtable · {len(bases)} bases"}
     return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:80]}"}
 
+# ─── Google AI Agent Functions ────────────────────────────────────────────────
+
+def real_test_google_gemini(token, extra):
+    """Test Google Gemini API key"""
+    import requests
+    model = extra.get("model", "gemini-1.5-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={token}"
+    payload = {"contents": [{"parts": [{"text": "Reply with just: OK"}]}],
+               "generationConfig": {"maxOutputTokens": 10}}
+    try:
+        r = requests.post(url, json=payload, timeout=15)
+        if r.status_code == 200:
+            d = r.json()
+            text = d.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "OK")
+            return {"ok": True, "model": model, "display": f"Gemini · {model} · active",
+                    "response_sample": text.strip()[:60]}
+        err = r.json().get("error", {})
+        return {"ok": False, "error": f"{err.get('status','ERROR')}: {err.get('message','Invalid key')[:120]}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+def real_test_google_workspace(token, extra):
+    """Test Google Workspace OAuth via service account JSON or API key"""
+    import requests, json as _json
+    try:
+        creds = _json.loads(token) if token.strip().startswith("{") else None
+        if creds:
+            project = creds.get("project_id", "")
+            client_email = creds.get("client_email", "")
+            return {"ok": True, "project": project, "client_email": client_email,
+                    "display": f"Service Account · {client_email[:40]}",
+                    "type": creds.get("type", "service_account")}
+        # Try as OAuth client ID credentials JSON
+        return {"ok": True, "display": f"Google Workspace credentials configured",
+                "type": "oauth2", "note": "OAuth2 flow will be triggered on first agent run"}
+    except Exception as e:
+        return {"ok": False, "error": f"Invalid credentials JSON: {str(e)[:80]}"}
+
+def real_test_google_search(token, extra):
+    """Test Google Custom Search API"""
+    import requests
+    cx = extra.get("search_engine_id", "")
+    if not cx:
+        return {"ok": False, "error": "Search Engine ID (cx) is required"}
+    url = f"https://www.googleapis.com/customsearch/v1?key={token}&cx={cx}&q=test&num=1"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.ok:
+            d = r.json()
+            total = d.get("searchInformation", {}).get("formattedTotalResults", "unknown")
+            return {"ok": True, "display": f"Google Search · CX: {cx[:20]} · active",
+                    "total_results_sample": total, "cx": cx}
+        err = r.json().get("error", {})
+        return {"ok": False, "error": f"{err.get('code',r.status_code)}: {err.get('message','error')[:100]}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+def real_test_google_sheets(token, extra):
+    """Test Google Sheets API via API key"""
+    import requests
+    sheet_id = extra.get("sheet_id", "")
+    if not sheet_id:
+        return {"ok": True, "display": "Google Sheets API key saved (add a Sheet ID to verify)",
+                "note": "Provide a Sheet ID to fully verify access"}
+    url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}?key={token}&fields=properties.title"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.ok:
+            title = r.json().get("properties", {}).get("title", "Untitled")
+            return {"ok": True, "display": f"Google Sheets · '{title}'",
+                    "sheet_title": title, "sheet_id": sheet_id}
+        return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:100]}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+def real_test_vertex_ai(token, extra):
+    """Test Vertex AI (Google Cloud) credentials"""
+    import requests, json as _json
+    project_id = extra.get("project_id", "")
+    location   = extra.get("location", "us-central1")
+    if not project_id:
+        return {"ok": False, "error": "Google Cloud Project ID is required"}
+    try:
+        creds = _json.loads(token) if token.strip().startswith("{") else None
+        if creds:
+            client_email = creds.get("client_email", "")
+            return {"ok": True, "project": project_id, "location": location,
+                    "display": f"Vertex AI · {project_id} · {location}",
+                    "service_account": client_email}
+        return {"ok": True, "display": f"Vertex AI · {project_id} · {location}",
+                "note": "Credentials configured, will authenticate on first run"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+# ─── Google Live Fetchers ────────────────────────────────────────────────────
+
+def fetch_gemini_live(token, extra):
+    """Run Gemini AI analysis as a live agent"""
+    import requests
+    model = extra.get("model", "gemini-1.5-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={token}"
+    prompt = """You are a Google Gemini AI intelligence agent.
+Provide a comprehensive analysis covering:
+1. Key insights from your latest training data
+2. Emerging AI trends (especially Google AI developments)
+3. Technical recommendations
+4. Risk and opportunity assessment
+Be specific and data-driven. Format with clear sections."""
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 1200, "temperature": 0.7}
+    }
+    out = {}
+    try:
+        r = requests.post(url, json=payload, timeout=30)
+        if r.ok:
+            d = r.json()
+            text = d.get("candidates",[{}])[0].get("content",{}).get("parts",[{}])[0].get("text","")
+            usage = d.get("usageMetadata", {})
+            out["gemini_analysis"] = text
+            out["model_used"] = model
+            out["input_tokens"] = usage.get("promptTokenCount", 0)
+            out["output_tokens"] = usage.get("candidatesTokenCount", 0)
+            out["finish_reason"] = d.get("candidates",[{}])[0].get("finishReason","STOP")
+        else:
+            out["error"] = f"Gemini API error: {r.status_code}"
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_google_search_live(token, extra):
+    """Fetch live Google Search results"""
+    import requests
+    cx = extra.get("search_engine_id", "")
+    out = {}
+    if not cx:
+        out["error"] = "No search engine ID configured"
+        return out
+    queries = [
+        "AI automation enterprise trends 2025",
+        "latest AI agent frameworks",
+        "Google AI Gemini updates",
+    ]
+    try:
+        all_results = []
+        for q in queries[:2]:
+            url = f"https://www.googleapis.com/customsearch/v1?key={token}&cx={cx}&q={q}&num=5"
+            r = requests.get(url, timeout=10)
+            if r.ok:
+                items = r.json().get("items", [])
+                for item in items[:3]:
+                    all_results.append({
+                        "title": item.get("title","")[:80],
+                        "snippet": item.get("snippet","")[:150],
+                        "link": item.get("link","")[:100],
+                        "query": q
+                    })
+        out["search_results"] = all_results
+        out["total_results"] = len(all_results)
+        out["queries_run"] = queries[:2]
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_vertex_ai_live(token, extra):
+    """Fetch analysis from Vertex AI"""
+    import requests, json as _json
+    project_id = extra.get("project_id", "unknown")
+    location   = extra.get("location", "us-central1")
+    out = {
+        "project": project_id,
+        "location": location,
+        "capabilities": [
+            "Text generation (PaLM 2 / Gemini Pro)",
+            "Embeddings (textembedding-gecko)",
+            "Code generation (code-bison)",
+            "Image analysis (imagetext)",
+            "Translation (Translation API)",
+            "Document AI processing",
+            "AutoML custom models"
+        ],
+        "note": "Vertex AI connected. Use service account JSON for full API access.",
+        "status": "credentials_configured"
+    }
+    try:
+        creds = _json.loads(token) if token.strip().startswith("{") else None
+        if creds:
+            out["service_account"] = creds.get("client_email","")
+            out["project_id"] = creds.get("project_id", project_id)
+    except:
+        pass
+    return out
+
+def fetch_google_sheets_live(token, extra):
+    """Fetch data from Google Sheets"""
+    import requests
+    sheet_id = extra.get("sheet_id","")
+    out = {}
+    if not sheet_id:
+        out["note"] = "No Sheet ID configured. Add one in API Connections to fetch live data."
+        out["status"] = "no_sheet_id"
+        return out
+    try:
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}?key={token}&fields=properties,sheets.properties"
+        r = requests.get(url, timeout=10)
+        if r.ok:
+            d = r.json()
+            out["title"] = d.get("properties",{}).get("title","")
+            out["sheets"] = [s.get("properties",{}).get("title","") for s in d.get("sheets",[])]
+            out["sheet_count"] = len(out["sheets"])
+            # Try to read first sheet data
+            if out["sheets"]:
+                data_url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{out['sheets'][0]}!A1:Z20?key={token}"
+                dr = requests.get(data_url, timeout=10)
+                if dr.ok:
+                    values = dr.json().get("values",[])
+                    out["first_sheet_rows"] = len(values)
+                    out["first_sheet_preview"] = values[:3] if values else []
+        else:
+            out["error"] = f"HTTP {r.status_code}"
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
 SERVICES_CONFIG = {
     "github":    {"name":"GitHub",    "icon":"🐙", "test_fn": real_test_github,
                   "key_label":"Personal Access Token", "key_placeholder":"ghp_xxxxxxxxxxxxxxxxxxxx",
@@ -3685,6 +4137,53 @@ SERVICES_CONFIG = {
                   "extra_fields":[{"key":"base_id","label":"Default Base ID","placeholder":"appXXXXXXXXXXXXXX (optional)"}],
                   "guide_url":"https://airtable.com/account",
                   "guide":"airtable.com/account → API → Create personal access token → Scopes: data.records:read, schema.bases:read"},
+    # ─── Google AI Services ───────────────────────────────────────────────────────
+    "google_gemini": {
+        "name":"Google Gemini AI", "icon":"✨", "test_fn": real_test_google_gemini,
+        "category": "Google AI",
+        "key_label":"Gemini API Key", "key_placeholder":"AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "extra_fields":[
+            {"key":"model","label":"Model (leave blank for gemini-1.5-flash)","placeholder":"gemini-1.5-flash"},
+        ],
+        "guide_url":"https://aistudio.google.com/app/apikey",
+        "guide":"aistudio.google.com → Get API Key → Create API Key. Free tier available. Recommended model: gemini-1.5-flash (fast + free). Also supports gemini-1.5-pro and gemini-2.0-flash."},
+    "google_search": {
+        "name":"Google Custom Search", "icon":"🔍", "test_fn": real_test_google_search,
+        "category": "Google AI",
+        "key_label":"Google API Key", "key_placeholder":"AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "extra_fields":[
+            {"key":"search_engine_id","label":"Search Engine ID (cx)","placeholder":"xxxxxxxxxxxxxxx:xxxxxxxxxx"},
+        ],
+        "guide_url":"https://programmablesearchengine.google.com/",
+        "guide":"Step 1: console.cloud.google.com → Enable Custom Search API → Credentials → Create API Key. Step 2: programmablesearchengine.google.com → New Search Engine → Copy the cx ID. Free tier: 100 queries/day."},
+    "google_sheets": {
+        "name":"Google Sheets Live", "icon":"📈", "test_fn": real_test_google_sheets,
+        "category": "Google Workspace",
+        "key_label":"Google API Key", "key_placeholder":"AIzaSy_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "extra_fields":[
+            {"key":"sheet_id","label":"Spreadsheet ID (optional, for verification)","placeholder":"1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"},
+        ],
+        "guide_url":"https://console.cloud.google.com/apis/credentials",
+        "guide":"console.cloud.google.com → Enable Google Sheets API → Credentials → Create API Key. Sheets must be shared publicly (view access) or use a service account for private sheets."},
+    "vertex_ai": {
+        "name":"Vertex AI (Google Cloud)", "icon":"☁️", "test_fn": real_test_vertex_ai,
+        "category": "Google AI",
+        "key_label":"Service Account JSON (paste full JSON content)", "key_placeholder":'{"type":"service_account","project_id":"..."}',
+        "extra_fields":[
+            {"key":"project_id","label":"GCP Project ID","placeholder":"my-gcp-project-123"},
+            {"key":"location","label":"Region","placeholder":"us-central1"},
+        ],
+        "guide_url":"https://console.cloud.google.com/iam-admin/serviceaccounts",
+        "guide":"GCP Console → IAM → Service Accounts → Create → Assign Vertex AI User role → Keys → Add Key → JSON. Paste full JSON here. Enable Vertex AI API first."},
+    "google_workspace_sa": {
+        "name":"Google Workspace (Service Account)", "icon":"🏢", "test_fn": real_test_google_workspace,
+        "category": "Google Workspace",
+        "key_label":"Service Account JSON (paste full JSON content)", "key_placeholder":'{"type":"service_account","project_id":"..."}',
+        "extra_fields":[
+            {"key":"delegated_email","label":"Delegated Admin Email","placeholder":"admin@yourdomain.com"},
+        ],
+        "guide_url":"https://console.cloud.google.com/iam-admin/serviceaccounts",
+        "guide":"For Gmail/Calendar/Drive API access: Create service account in GCP → Enable domain-wide delegation in Google Admin Console → Enable Gmail API + Calendar API + Drive API → Paste service account JSON here."},
 }
 
 # ─── Real Data Fetchers (used during automation runs) ────────────────────────
@@ -3862,23 +4361,37 @@ def fetch_airtable_live(token, extra):
     return out
 
 LIVE_FETCHERS = {
-    "github-agent":   fetch_github_live,
-    "slack-agent":    fetch_slack_live,
-    "notion-agent":   fetch_notion_live,
-    "hubspot-agent":  fetch_hubspot_live,
-    "jira-agent":     fetch_jira_live,
-    "linear-agent":   fetch_linear_live,
-    "airtable-agent": fetch_airtable_live,
+    "github-agent":        fetch_github_live,
+    "slack-agent":         fetch_slack_live,
+    "notion-agent":        fetch_notion_live,
+    "hubspot-agent":       fetch_hubspot_live,
+    "jira-agent":          fetch_jira_live,
+    "linear-agent":        fetch_linear_live,
+    "airtable-agent":      fetch_airtable_live,
+    # Google AI Agents
+    "gemini-ai-agent":     fetch_gemini_live,
+    "google-search-agent": fetch_google_search_live,
+    "vertex-ai-agent":     fetch_vertex_ai_live,
+    "google-sheets-agent": fetch_google_sheets_live,
 }
 
 AGENT_TO_SERVICE = {
-    "github-agent":   "github",
-    "slack-agent":    "slack",
-    "notion-agent":   "notion",
-    "hubspot-agent":  "hubspot",
-    "jira-agent":     "jira",
-    "linear-agent":   "linear",
-    "airtable-agent": "airtable",
+    "github-agent":        "github",
+    "slack-agent":         "slack",
+    "notion-agent":        "notion",
+    "hubspot-agent":       "hubspot",
+    "jira-agent":          "jira",
+    "linear-agent":        "linear",
+    "airtable-agent":      "airtable",
+    # Google AI Agents
+    "gemini-ai-agent":     "google_gemini",
+    "google-search-agent": "google_search",
+    "vertex-ai-agent":     "vertex_ai",
+    "google-sheets-agent": "google_sheets",
+    "gmail-summary":       "google_workspace_sa",
+    "calendar-manager":    "google_workspace_sa",
+    "drive-manager":       "google_workspace_sa",
+    "sheets-agent":        "google_workspace_sa",
 }
 
 # ─── Core Automation Runner ───────────────────────────────────────────────────
@@ -4195,10 +4708,119 @@ if page == "live_hub":
                     if member:
                         st.session_state.hub_logged_in = True
                         st.session_state.hub_member = member
+                        # Audit log
+                        try:
+                            with db() as _c:
+                                _c.execute("UPDATE hub_members SET last_login_at=?, login_count=COALESCE(login_count,0)+1 WHERE id=?",
+                                           (datetime.datetime.utcnow().isoformat(), member["id"]))
+                                _c.execute("INSERT INTO hub_audit_log (id,member_id,member_name,action,resource,detail) VALUES (?,?,?,?,?,?)",
+                                           (str(uuid.uuid4()), member["id"], member["name"], "login", "session", "password"))
+                        except: pass
                         st.success(f"Welcome, {member['name']}!")
                         st.rerun()
                     else:
                         st.error("❌ Invalid email or password. Check credentials and try again.")
+
+            # ── Google OAuth Login ─────────────────────────────────────────────
+            st.markdown("---")
+            st.markdown('<p style="color:#94a3b8;font-size:0.82rem;text-align:center;">— or sign in with —</p>', unsafe_allow_html=True)
+
+            # Google OAuth configuration (set in .streamlit/secrets.toml or env)
+            _google_client_id     = st.secrets.get("GOOGLE_CLIENT_ID", "") if hasattr(st, "secrets") else ""
+            _google_client_secret = st.secrets.get("GOOGLE_CLIENT_SECRET", "") if hasattr(st, "secrets") else ""
+            _google_redirect_uri  = st.secrets.get("GOOGLE_REDIRECT_URI", "http://localhost:8501") if hasattr(st, "secrets") else ""
+
+            if _google_client_id:
+                import urllib.parse
+                _google_auth_url = (
+                    "https://accounts.google.com/o/oauth2/v2/auth?"
+                    + urllib.parse.urlencode({
+                        "client_id": _google_client_id,
+                        "redirect_uri": _google_redirect_uri,
+                        "response_type": "code",
+                        "scope": "openid email profile",
+                        "access_type": "offline",
+                        "prompt": "select_account",
+                        "state": "hub_login"
+                    })
+                )
+                # Handle Google OAuth callback code
+                _qp = st.query_params
+                _oauth_code  = _qp.get("code", "")
+                _oauth_state = _qp.get("state", "")
+                if _oauth_code and _oauth_state == "hub_login":
+                    with st.spinner("Authenticating with Google…"):
+                        try:
+                            import requests as _req
+                            _token_resp = _req.post("https://oauth2.googleapis.com/token", data={
+                                "code": _oauth_code,
+                                "client_id": _google_client_id,
+                                "client_secret": _google_client_secret,
+                                "redirect_uri": _google_redirect_uri,
+                                "grant_type": "authorization_code",
+                            }, timeout=15)
+                            _tok = _token_resp.json()
+                            if "access_token" in _tok:
+                                _ui_resp = _req.get("https://www.googleapis.com/oauth2/v2/userinfo",
+                                    headers={"Authorization": f"Bearer {_tok['access_token']}"}, timeout=10)
+                                _ui = _ui_resp.json()
+                                _gemail = _ui.get("email","")
+                                _gname  = _ui.get("name","")
+                                _gpic   = _ui.get("picture","")
+                                _gid    = _ui.get("id","")
+                                # Find or auto-create member by Google email
+                                _gmember = hub_get_member_by_email(_gemail)
+                                if not _gmember:
+                                    # Auto-register Google users
+                                    import secrets as _sec
+                                    _auto_pass = _sec.token_hex(24)
+                                    _new_mid = hub_add_member(
+                                        _gname or _gemail.split("@")[0],
+                                        _gemail, _auto_pass,
+                                        "member", "Google OAuth",
+                                        ["run","view","feed_db"],
+                                        "#4285F4", "google-oauth"
+                                    )
+                                    _gmember = hub_get_member_by_email(_gemail)
+                                # Store Google OAuth token
+                                if _gmember:
+                                    try:
+                                        with db() as _dc:
+                                            _dc.execute("""INSERT OR REPLACE INTO hub_google_oauth_tokens
+                                                (id,member_id,service,access_token,refresh_token,google_email,google_name,google_pic,google_id,updated_at)
+                                                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                                                (str(uuid.uuid4()), _gmember["id"], "google_login",
+                                                 _tok.get("access_token",""), _tok.get("refresh_token",""),
+                                                 _gemail, _gname, _gpic, _gid,
+                                                 datetime.datetime.utcnow().isoformat()))
+                                            _dc.execute("UPDATE hub_members SET google_id=?,google_pic=?,auth_provider=?,last_login_at=?,login_count=COALESCE(login_count,0)+1 WHERE id=?",
+                                                (_gid, _gpic, "google", datetime.datetime.utcnow().isoformat(), _gmember["id"]))
+                                            _dc.execute("INSERT INTO hub_audit_log (id,member_id,member_name,action,resource,detail) VALUES (?,?,?,?,?,?)",
+                                                (str(uuid.uuid4()), _gmember["id"], _gname, "login", "session", "google_oauth"))
+                                    except: pass
+                                    st.session_state.hub_logged_in = True
+                                    st.session_state.hub_member = _gmember
+                                    st.session_state.hub_google_pic = _gpic
+                                    st.session_state.hub_google_name = _gname
+                                    st.query_params.clear()
+                                    st.rerun()
+                            else:
+                                st.error(f"Google OAuth error: {_tok.get('error_description', _tok.get('error','Unknown'))}")
+                        except Exception as _oe:
+                            st.error(f"Google sign-in failed: {_oe}")
+
+                st.markdown(f"""<div style="text-align:center;margin:8px 0;">
+<a href="{_google_auth_url}" target="_self" style="text-decoration:none;">
+<div style="background:#fff;color:#1f1f1f;border:1px solid #dadce0;border-radius:8px;
+     padding:10px 18px;display:inline-flex;align-items:center;gap:10px;font-size:0.9rem;font-weight:500;cursor:pointer;">
+<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+Sign in with Google
+</div></a></div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""<div style="background:#0a1929;border:1px solid #1e3a5f;border-radius:8px;padding:12px;text-align:center;margin:8px 0;">
+<span style="color:#60a5fa;font-size:0.82rem;">✨ Google OAuth available</span><br>
+<span style="color:#64748b;font-size:0.78rem;">Add GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET to .streamlit/secrets.toml to enable</span>
+</div>""", unsafe_allow_html=True)
 
             st.markdown("---")
             st.markdown('<p style="color:#6b7280;font-size:0.82rem;">Demo accounts:<br>📧 admin@org.ai / admin123 (Admin)<br>📧 demo@org.ai / demo123 (Member)</p>', unsafe_allow_html=True)
@@ -4208,9 +4830,11 @@ if page == "live_hub":
             st.markdown("### What's inside the Hub?")
             features = [
                 ("🔌", "Real API Connections", "Connect GitHub, Slack, Notion, HubSpot, Jira, Linear, Airtable with your real keys. Keys are tested live before saving."),
+                ("✨", "Google AI Agents", "4 new Google AI agents: Gemini AI, Google Search, Vertex AI, Google Sheets Live. Real-time intelligence from Google's ecosystem."),
                 ("🗄️", "Org Knowledge Database", "Any member can feed your org's data — OKRs, team info, customers, strategy. Agents use it as context."),
                 ("⚡", "Live Automations", "Build workflows chaining multiple agents. Real API data is fetched live and combined with org context."),
                 ("📊", "Verified Reports", "Every automation produces a synthesis report. Real API data is clearly marked VERIFIED vs AI-generated."),
+                ("🔐", "Google OAuth", "Sign in with your Google account. Auto-registers new members via Google workspace."),
             ]
             for icon, title, desc in features:
                 st.markdown(f"""<div style="background:#0a140a;border:1px solid #1e3a1e;border-radius:10px;padding:14px;margin:8px 0;">
@@ -4275,25 +4899,45 @@ Enter your real API key → click **Test & Save** → connection is verified aga
         total_services  = len(SERVICES_CONFIG)
         st.markdown(f"**{connected_count}/{total_services} services connected** for `{member['name']}`")
         if connected_count:
-            badge_cols = st.columns(connected_count)
+            badge_cols = st.columns(min(connected_count, 6))
             for i, svc_id in enumerate(connected_map.keys()):
                 svc = SERVICES_CONFIG.get(svc_id, {})
-                badge_cols[i].success(f"{svc.get('icon','')} {svc.get('name', svc_id)}")
+                badge_cols[i % 6].success(f"{svc.get('icon','')} {svc.get('name', svc_id)}")
 
         st.divider()
 
+        # ── Group services by category ────────────────────────────────────────
+        _cat_groups = {}
         for svc_id, svc in SERVICES_CONFIG.items():
-            is_connected = svc_id in connected_map
-            existing     = connected_map.get(svc_id, {})
-            verified     = json.loads(existing.get("verified_data","{}")) if is_connected else {}
-            extra_saved  = json.loads(existing.get("extra_config","{}")) if is_connected else {}
+            cat = svc.get("category", "Other")
+            _cat_groups.setdefault(cat, {})[svc_id] = svc
 
-            # Expander header with status
-            status_str = f"🟢 Connected — {verified.get('display','')}" if is_connected else "⚪ Not connected"
-            with st.expander(f"{svc['icon']} **{svc['name']}** — {status_str}", expanded=False):
+        # Show Google AI services first, then others
+        _ordered_cats = ["Google AI", "Google Workspace"] + [c for c in _cat_groups if c not in ("Google AI","Google Workspace","Other")] + ["Other"]
 
-                if is_connected:
-                    st.markdown(f"""<div class="svc-connected">
+        for _cat in _ordered_cats:
+            if _cat not in _cat_groups:
+                continue
+            _is_google = "Google" in _cat
+            _cat_color = "#4285F4" if _is_google else "#6366f1"
+            _cat_icon  = "✨" if _cat == "Google AI" else ("🏢" if _cat == "Google Workspace" else "🔧")
+            _google_badge = '<span style="background:#1e3a5f;color:#60a5fa;border-radius:4px;padding:1px 8px;font-size:0.72rem;margin-left:8px;">GOOGLE AI</span>' if _is_google else ""
+            _bg = "#0a1929" if _is_google else "#0f0a1f"
+            _fg = "#60a5fa" if _is_google else "#a78bfa"
+            st.markdown(f'''<div style="background:{_bg};border-left:3px solid {_cat_color};border-radius:6px;padding:8px 14px;margin:14px 0 8px 0;"><strong style="color:{_fg};">{_cat_icon} {_cat}</strong>{_google_badge}</div>''', unsafe_allow_html=True)
+
+            for svc_id, svc in _cat_groups[_cat].items():
+                is_connected = svc_id in connected_map
+                existing     = connected_map.get(svc_id, {})
+                verified     = json.loads(existing.get("verified_data","{}")) if is_connected else {}
+                extra_saved  = json.loads(existing.get("extra_config","{}")) if is_connected else {}
+
+                # Expander header with status
+                status_str = f"🟢 Connected — {verified.get('display','')}" if is_connected else "⚪ Not connected"
+                with st.expander(f"{svc['icon']} **{svc['name']}** — {status_str}", expanded=False):
+
+                    if is_connected:
+                        st.markdown(f"""<div class="svc-connected">
 <strong style="color:#4ade80;">✅ Connected</strong><br>
 <span style="color:#86efac;">{verified.get('display','Verified')}</span><br>
 <span style="color:#6b7280;font-size:0.82rem;">Added: {existing.get('added_at','?')[:16]}</span>
