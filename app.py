@@ -257,11 +257,11 @@ def init_db():
 
     # Seed org members
     members = [
-        (str(uuid.uuid4()), "Alex Chen", "Engineering Lead", "alex@org.ai", "Engineering", '["run_agents","view_reports","manage_workflows"]', "#3b82f6"),
-        (str(uuid.uuid4()), "Priya Sharma", "Product Manager", "priya@org.ai", "Product", '["run_agents","view_reports"]', "#8b5cf6"),
-        (str(uuid.uuid4()), "Marcus Johnson", "Data Analyst", "marcus@org.ai", "Analytics", '["view_reports","run_agents"]', "#22c55e"),
-        (str(uuid.uuid4()), "Sofia Rodriguez", "CRM Manager", "sofia@org.ai", "Sales", '["run_agents","view_reports"]', "#f59e0b"),
-        (str(uuid.uuid4()), "Liam Patel", "DevOps Engineer", "liam@org.ai", "Engineering", '["run_agents","manage_workflows","admin"]', "#ef4444"),
+        ("mem-1", "Alex Chen", "Engineering Lead", "alex@org.ai", "Engineering", '["run_agents","view_reports","manage_workflows"]', "#3b82f6"),
+        ("mem-2", "Priya Sharma", "Product Manager", "priya@org.ai", "Product", '["run_agents","view_reports"]', "#8b5cf6"),
+        ("mem-3", "Marcus Johnson", "Data Analyst", "marcus@org.ai", "Analytics", '["view_reports","run_agents"]', "#22c55e"),
+        ("mem-4", "Sofia Rodriguez", "CRM Manager", "sofia@org.ai", "Sales", '["run_agents","view_reports"]', "#f59e0b"),
+        ("mem-5", "Liam Patel", "DevOps Engineer", "liam@org.ai", "Engineering", '["run_agents","manage_workflows","admin"]', "#ef4444"),
     ]
     c.executemany(
         "INSERT OR IGNORE INTO org_members (id,name,role,email,department,permissions,avatar_color) VALUES (?,?,?,?,?,?,?)",
@@ -270,15 +270,15 @@ def init_db():
 
     # Seed integrations
     integrations = [
-        (str(uuid.uuid4()), "Google Workspace", "google", None, 0, None, '{"scopes":["gmail","calendar","drive","sheets"]}'),
-        (str(uuid.uuid4()), "Slack", "slack", None, 0, None, '{"workspace":""}'),
-        (str(uuid.uuid4()), "GitHub", "github", None, 0, None, '{"org":"","repo":""}'),
-        (str(uuid.uuid4()), "Jira", "jira", None, 0, None, '{"domain":"","project":""}'),
-        (str(uuid.uuid4()), "HubSpot", "hubspot", None, 0, None, '{"portal_id":""}'),
-        (str(uuid.uuid4()), "Notion", "notion", None, 0, None, '{"workspace_id":""}'),
-        (str(uuid.uuid4()), "Airtable", "airtable", None, 0, None, '{"base_id":""}'),
-        (str(uuid.uuid4()), "Linear", "linear", None, 0, None, '{"team_id":""}'),
-        (str(uuid.uuid4()), "Groq AI", "groq", None, 0, None, '{"model":"llama-3.3-70b-versatile"}'),
+        ("intg-1", "Google Workspace", "google", None, 0, None, '{"scopes":["gmail","calendar","drive","sheets"]}'),
+        ("intg-2", "Slack", "slack", None, 0, None, '{"workspace":""}'),
+        ("intg-3", "GitHub", "github", None, 0, None, '{"org":"","repo":""}'),
+        ("intg-4", "Jira", "jira", None, 0, None, '{"domain":"","project":""}'),
+        ("intg-5", "HubSpot", "hubspot", None, 0, None, '{"portal_id":""}'),
+        ("intg-6", "Notion", "notion", None, 0, None, '{"workspace_id":""}'),
+        ("intg-7", "Airtable", "airtable", None, 0, None, '{"base_id":""}'),
+        ("intg-8", "Linear", "linear", None, 0, None, '{"team_id":""}'),
+        ("intg-9", "Groq AI", "groq", None, 0, None, '{"model":"llama-3.3-70b-versatile"}'),
     ]
     c.executemany(
         "INSERT OR IGNORE INTO org_integrations (id,name,provider,api_key_hash,connected,last_tested,config) VALUES (?,?,?,?,?,?,?)",
