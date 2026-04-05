@@ -65,7 +65,7 @@ SAAP_PALETTE = {
 
 # ─── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="SAAP v4 – Organisation Agent Platform",
+    page_title="SAAP v5.6 — Autonomous Agent Platform",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -74,350 +74,892 @@ st.set_page_config(
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
     /* ── DESIGN TOKENS ─────────────────────────────────────────── */
     :root {
-        --bg:       #060b18;
-        --bg2:      #0b1225;
-        --surface:  #0f1a30;
-        --surface2: #152035;
-        --border:   #1e3350;
-        --border2:  #253d5c;
-        --blue:     #3b82f6;
-        --blue-dim: #1d4ed8;
-        --cyan:     #06b6d4;
-        --green:    #22c55e;
-        --amber:    #f59e0b;
-        --red:      #ef4444;
-        --purple:   #8b5cf6;
-        --orange:   #f97316;
-        --text:     #f0f4ff;
-        --text2:    #94a8c8;
-        --text3:    #5a7090;
-        --glow-blue: 0 0 24px rgba(59,130,246,0.15);
-        --glow-green: 0 0 24px rgba(34,197,94,0.15);
-        --radius-sm: 8px;
-        --radius:   12px;
-        --radius-lg: 18px;
-        --radius-xl: 24px;
+        --bg:        #03050d;
+        --bg2:       #060c18;
+        --surface:   #0a1120;
+        --surface2:  #0e1829;
+        --surface3:  #121f33;
+        --border:    #162034;
+        --border2:   #1e2e46;
+        --border3:   #263a56;
+        --blue:      #4f8ef7;
+        --blue-dim:  #2563eb;
+        --blue-bright:#60a5fa;
+        --cyan:      #00d4ff;
+        --cyan-dim:  #06b6d4;
+        --green:     #10e87e;
+        --green-dim: #22c55e;
+        --amber:     #ffb340;
+        --red:       #ff4757;
+        --purple:    #a78bfa;
+        --purple-dim:#8b5cf6;
+        --pink:      #f472b6;
+        --orange:    #ff7849;
+        --text:      #eef2ff;
+        --text2:     #8ba3c4;
+        --text3:     #4a6280;
+        --text4:     #2d4060;
+        --glow-blue:  0 0 30px rgba(79,142,247,0.18), 0 0 60px rgba(79,142,247,0.07);
+        --glow-green: 0 0 30px rgba(16,232,126,0.18), 0 0 60px rgba(16,232,126,0.07);
+        --glow-cyan:  0 0 30px rgba(0,212,255,0.15), 0 0 60px rgba(0,212,255,0.05);
+        --glow-amber: 0 0 30px rgba(255,179,64,0.18), 0 0 60px rgba(255,179,64,0.07);
+        --radius-xs: 6px;
+        --radius-sm: 10px;
+        --radius:    14px;
+        --radius-lg: 20px;
+        --radius-xl: 28px;
+        --radius-2xl: 36px;
     }
 
     /* ── GLOBAL BASE ────────────────────────────────────────────── */
-    .stApp { background-color: var(--bg); font-family: 'DM Sans', sans-serif; }
-    .stSidebar { background: linear-gradient(180deg, var(--bg2) 0%, #080f1e 100%); border-right: 1px solid var(--border); }
-    .stSidebar .stMarkdown, .stSidebar label, .stSidebar .stSelectbox label { color: var(--text2) !important; font-size: 0.82rem; }
+    .stApp {
+        background-color: var(--bg);
+        font-family: 'Outfit', sans-serif;
+        background-image:
+            radial-gradient(ellipse 80% 60% at 50% -20%, rgba(79,142,247,0.08) 0%, transparent 70%),
+            radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0,212,255,0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 30% at 10% 90%, rgba(167,139,250,0.04) 0%, transparent 60%);
+        background-attachment: fixed;
+    }
 
-    h1, h2, h3, h4 { color: var(--text) !important; font-family: 'Syne', sans-serif; letter-spacing: -0.02em; }
-    h1 { font-size: 2.2rem; font-weight: 800; }
-    h2 { font-size: 1.5rem; font-weight: 700; }
-    h3 { font-size: 1.1rem; font-weight: 700; }
-    p, li { color: var(--text2); }
-    code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; }
+    /* Dot-grid texture overlay */
+    .stApp::before {
+        content: "";
+        position: fixed; inset: 0; pointer-events: none; z-index: 0;
+        background-image: radial-gradient(rgba(79,142,247,0.08) 1px, transparent 1px);
+        background-size: 32px 32px;
+        mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+    }
 
-    .stMetric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
-    .stMetric label { color: var(--text3) !important; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-family: 'JetBrains Mono', monospace; }
-    .stMetric [data-testid="stMetricValue"] { color: var(--text) !important; font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 700; }
-    .stMetric [data-testid="stMetricDelta"] { font-size: 0.78rem; }
+    .stSidebar {
+        background: linear-gradient(180deg, rgba(6,12,24,0.98) 0%, rgba(3,5,13,0.99) 100%);
+        border-right: 1px solid var(--border);
+        backdrop-filter: blur(20px);
+    }
+    .stSidebar::before {
+        content: "";
+        position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(180deg, rgba(79,142,247,0.04) 0%, transparent 30%);
+    }
+    .stSidebar .stMarkdown, .stSidebar label, .stSidebar .stSelectbox label {
+        color: var(--text2) !important;
+        font-size: 0.82rem;
+        font-family: 'Outfit', sans-serif;
+    }
 
-    div[data-testid="stExpander"] { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 4px 0; }
+    h1, h2, h3, h4 {
+        color: var(--text) !important;
+        font-family: 'Outfit', sans-serif;
+        letter-spacing: -0.03em;
+    }
+    h1 { font-size: 2.4rem; font-weight: 800; }
+    h2 { font-size: 1.6rem; font-weight: 700; }
+    h3 { font-size: 1.15rem; font-weight: 600; }
+    p, li { color: var(--text2); font-family: 'Outfit', sans-serif; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--cyan); }
+
+    /* ── METRICS ────────────────────────────────────────────────── */
+    .stMetric {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 18px 22px;
+        position: relative; overflow: hidden;
+        transition: all 0.25s ease;
+    }
+    .stMetric::before {
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, transparent, var(--blue), var(--cyan), transparent);
+        opacity: 0.6;
+    }
+    .stMetric:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: var(--glow-blue); }
+    .stMetric label {
+        color: var(--text3) !important;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 500;
+    }
+    .stMetric [data-testid="stMetricValue"] {
+        color: var(--text) !important;
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+    }
+    .stMetric [data-testid="stMetricDelta"] { font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── EXPANDERS ──────────────────────────────────────────────── */
+    div[data-testid="stExpander"] {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        margin: 5px 0;
+        transition: all 0.2s ease;
+        overflow: hidden;
+    }
     div[data-testid="stExpander"]:hover { border-color: var(--border2); }
-    div[data-testid="stExpander"] summary { color: var(--text) !important; font-weight: 600; }
+    div[data-testid="stExpander"] summary {
+        color: var(--text) !important;
+        font-weight: 600;
+        font-family: 'Outfit', sans-serif;
+        padding: 4px 0;
+    }
 
-    div[data-testid="stTabs"] [role="tab"] { color: var(--text3) !important; border-bottom: 2px solid transparent; font-size: 0.85rem; font-weight: 500; }
-    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: var(--blue) !important; border-bottom-color: var(--blue); }
+    /* ── TABS ───────────────────────────────────────────────────── */
+    div[data-testid="stTabs"] [role="tab"] {
+        color: var(--text3) !important;
+        border-bottom: 2px solid transparent;
+        font-size: 0.88rem;
+        font-weight: 500;
+        font-family: 'Outfit', sans-serif;
+        letter-spacing: 0.01em;
+        transition: all 0.18s;
+        padding: 8px 16px;
+    }
+    div[data-testid="stTabs"] [role="tab"]:hover { color: var(--text2) !important; }
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: var(--blue-bright) !important;
+        border-bottom-color: var(--blue);
+        font-weight: 600;
+    }
 
-    .stButton > button { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); font-weight: 500; font-size: 0.88rem; transition: all 0.18s; }
-    .stButton > button:hover { background: var(--border); border-color: var(--blue); color: var(--text); box-shadow: var(--glow-blue); }
-    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #1d4ed8, #2563eb); border: none; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(59,130,246,0.3); }
-    .stButton > button[kind="primary"]:hover { background: linear-gradient(135deg, #2563eb, #3b82f6); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+    /* ── BUTTONS ────────────────────────────────────────────────── */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--surface2), var(--surface3));
+        border: 1px solid var(--border2);
+        color: var(--text2);
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        font-size: 0.87rem;
+        font-family: 'Outfit', sans-serif;
+        transition: all 0.2s ease;
+        letter-spacing: 0.01em;
+        padding: 0.45rem 1.1rem;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, var(--surface3), var(--border));
+        border-color: var(--blue);
+        color: var(--text);
+        box-shadow: var(--glow-blue);
+        transform: translateY(-1px);
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1a3fc4, #2563eb, #3b82f6);
+        border: none;
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 4px 20px rgba(79,142,247,0.35);
+        letter-spacing: 0.02em;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #2563eb, #3b82f6, #60a5fa);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(79,142,247,0.45);
+    }
 
-    .stTextInput input, .stTextArea textarea, .stSelectbox select { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text) !important; border-radius: var(--radius-sm) !important; font-family: 'DM Sans', sans-serif; }
-    .stTextInput input:focus, .stTextArea textarea:focus { border-color: var(--blue) !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important; }
-    .stTextInput label, .stTextArea label, .stSelectbox label { color: var(--text2) !important; font-size: 0.82rem; font-weight: 500; }
+    /* ── INPUTS ─────────────────────────────────────────────────── */
+    .stTextInput input, .stTextArea textarea {
+        background: var(--surface) !important;
+        border: 1px solid var(--border2) !important;
+        color: var(--text) !important;
+        border-radius: var(--radius-sm) !important;
+        font-family: 'Outfit', sans-serif !important;
+        font-size: 0.9rem !important;
+        transition: all 0.2s;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: var(--blue) !important;
+        box-shadow: 0 0 0 3px rgba(79,142,247,0.12) !important;
+        background: var(--surface2) !important;
+    }
+    .stTextInput label, .stTextArea label, .stSelectbox label {
+        color: var(--text2) !important;
+        font-size: 0.83rem !important;
+        font-weight: 500;
+        font-family: 'Outfit', sans-serif;
+    }
+    .stSelectbox > div > div {
+        background: var(--surface) !important;
+        border: 1px solid var(--border2) !important;
+        border-radius: var(--radius-sm) !important;
+        color: var(--text) !important;
+    }
 
-    /* Progress bar */
-    .stProgress > div > div { background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 4px; }
-    .stProgress > div { background: var(--surface); border-radius: 4px; }
+    /* ── PROGRESS BAR ───────────────────────────────────────────── */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, var(--blue-dim), var(--blue), var(--cyan));
+        border-radius: 99px;
+        box-shadow: 0 0 12px rgba(79,142,247,0.3);
+    }
+    .stProgress > div {
+        background: var(--surface);
+        border-radius: 99px;
+        height: 6px !important;
+    }
 
-    /* Dataframe */
-    .stDataFrame { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .stDataFrame thead th { background: var(--surface2) !important; color: var(--text) !important; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
-    .stDataFrame tbody td { background: var(--surface) !important; color: var(--text2) !important; border-bottom: 1px solid var(--border) !important; font-size: 0.85rem; }
-    .stDataFrame tbody tr:hover td { background: var(--surface2) !important; }
+    /* ── DATAFRAME ──────────────────────────────────────────────── */
+    .stDataFrame { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+    .stDataFrame thead th {
+        background: var(--surface2) !important;
+        color: var(--text2) !important;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-bottom: 1px solid var(--border2);
+        padding: 10px 14px;
+    }
+    .stDataFrame tbody td {
+        background: var(--surface) !important;
+        color: var(--text2) !important;
+        border-bottom: 1px solid var(--border) !important;
+        font-size: 0.86rem;
+        font-family: 'Outfit', sans-serif;
+    }
+    .stDataFrame tbody tr:hover td { background: var(--surface2) !important; color: var(--text) !important; }
 
-    /* Alerts */
-    .stAlert { border-radius: var(--radius) !important; border-left-width: 4px !important; }
-    div[data-testid="stInfo"] { background: rgba(59,130,246,0.08) !important; border-left-color: var(--blue) !important; }
-    div[data-testid="stSuccess"] { background: rgba(34,197,94,0.08) !important; border-left-color: var(--green) !important; }
-    div[data-testid="stWarning"] { background: rgba(245,158,11,0.08) !important; border-left-color: var(--amber) !important; }
-    div[data-testid="stError"] { background: rgba(239,68,68,0.08) !important; border-left-color: var(--red) !important; }
+    /* ── ALERTS ─────────────────────────────────────────────────── */
+    .stAlert { border-radius: var(--radius-lg) !important; border-left-width: 3px !important; }
+    div[data-testid="stInfo"]    { background: rgba(79,142,247,0.07) !important; border-left-color: var(--blue) !important; }
+    div[data-testid="stSuccess"] { background: rgba(16,232,126,0.07) !important; border-left-color: var(--green) !important; }
+    div[data-testid="stWarning"] { background: rgba(255,179,64,0.07) !important; border-left-color: var(--amber) !important; }
+    div[data-testid="stError"]   { background: rgba(255,71,87,0.07)  !important; border-left-color: var(--red) !important; }
 
-    /* Divider */
-    hr { border-color: var(--border) !important; margin: 20px 0 !important; }
+    /* ── DIVIDER ────────────────────────────────────────────────── */
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: linear-gradient(90deg, transparent, var(--border2), transparent) !important;
+        margin: 24px 0 !important;
+    }
 
     /* ── AGENT CARDS ────────────────────────────────────────────── */
     .agent-card {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 20px; margin: 6px 0; transition: all 0.22s ease;
-        position: relative; overflow: hidden;
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        margin: 6px 0;
+        transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
     }
     .agent-card::before {
-        content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg);
-        background: linear-gradient(135deg, rgba(59,130,246,0.04), transparent 60%);
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, rgba(79,142,247,0.05), transparent 60%);
         pointer-events: none;
     }
-    .agent-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--glow-blue); }
-    .agent-card-active { background: rgba(29,78,216,0.12); border: 2px solid var(--blue) !important; box-shadow: var(--glow-blue); }
-    .agent-card-running { background: rgba(245,158,11,0.08); border: 2px solid var(--amber) !important; box-shadow: 0 0 20px rgba(245,158,11,0.12); }
-    .agent-card-done    { background: rgba(34,197,94,0.07); border: 2px solid var(--green) !important; box-shadow: var(--glow-green); }
-    .agent-card-error   { background: rgba(239,68,68,0.07); border: 2px solid var(--red) !important; }
+    .agent-card::after {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(79,142,247,0.3), transparent);
+        opacity: 0;
+        transition: opacity 0.25s;
+    }
+    .agent-card:hover {
+        border-color: var(--border3);
+        transform: translateY(-3px);
+        box-shadow: var(--glow-blue);
+    }
+    .agent-card:hover::after { opacity: 1; }
+    .agent-card-active { background: rgba(30,60,150,0.15); border: 2px solid var(--blue) !important; box-shadow: var(--glow-blue); }
+    .agent-card-running { background: rgba(255,179,64,0.07); border: 2px solid var(--amber) !important; box-shadow: var(--glow-amber); }
+    .agent-card-done    { background: rgba(16,232,126,0.06); border: 2px solid var(--green) !important; box-shadow: var(--glow-green); }
+    .agent-card-error   { background: rgba(255,71,87,0.07); border: 2px solid var(--red) !important; }
 
     /* ── STATUS BADGES ──────────────────────────────────────────── */
-    .status-completed { color: #4ade80; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
-    .status-failed    { color: #f87171; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
-    .status-running   { color: #fbbf24; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; animation: text-pulse 1.5s ease-in-out infinite; }
+    .status-completed {
+        color: var(--green);
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .status-failed {
+        color: var(--red);
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .status-running {
+        color: var(--amber);
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: 'JetBrains Mono', monospace;
+        animation: text-pulse 1.5s ease-in-out infinite;
+    }
 
     .pill {
-        display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 0.72rem;
-        background: var(--surface2); color: var(--text2); margin: 2px;
-        border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace;
-        transition: all 0.15s;
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 99px;
+        font-size: 0.72rem;
+        background: var(--surface2);
+        color: var(--text2);
+        margin: 2px;
+        border: 1px solid var(--border2);
+        font-family: 'JetBrains Mono', monospace;
+        transition: all 0.18s;
+        letter-spacing: 0.02em;
     }
-    .pill:hover { background: var(--border); color: var(--blue); border-color: var(--blue); }
+    .pill:hover { background: var(--border); color: var(--cyan); border-color: var(--cyan); }
 
     /* ── SECTION BADGES ─────────────────────────────────────────── */
-    .live-badge     { background: rgba(34,197,94,0.12); color: #4ade80; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(34,197,94,0.3); text-transform: uppercase; }
-    .sim-badge      { background: rgba(59,130,246,0.12); color: #60a5fa; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(59,130,246,0.3); text-transform: uppercase; }
-    .research-badge { background: rgba(139,92,246,0.12); color: #c084fc; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(139,92,246,0.3); text-transform: uppercase; }
-    .org-badge      { background: rgba(249,115,22,0.12); color: #fb923c; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(249,115,22,0.3); text-transform: uppercase; }
-    .new-badge      { background: rgba(6,182,212,0.12); color: #22d3ee; padding: 4px 10px; border-radius: 99px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(6,182,212,0.3); animation: pulse 2s infinite; text-transform: uppercase; }
+    .live-badge {
+        background: rgba(16,232,126,0.1);
+        color: var(--green);
+        padding: 5px 16px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(16,232,126,0.25);
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
+    }
+    .sim-badge {
+        background: rgba(79,142,247,0.1);
+        color: var(--blue-bright);
+        padding: 5px 16px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(79,142,247,0.25);
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
+    }
+    .research-badge {
+        background: rgba(167,139,250,0.1);
+        color: var(--purple);
+        padding: 5px 16px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(167,139,250,0.25);
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
+    }
+    .org-badge {
+        background: rgba(255,120,73,0.1);
+        color: var(--orange);
+        padding: 5px 16px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(255,120,73,0.25);
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
+    }
+    .new-badge {
+        background: rgba(0,212,255,0.1);
+        color: var(--cyan);
+        padding: 4px 12px;
+        border-radius: 99px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        border: 1px solid rgba(0,212,255,0.25);
+        animation: badge-pulse 2.5s ease-in-out infinite;
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        display: inline-block;
+    }
 
     /* ── LAYOUT CARDS ───────────────────────────────────────────── */
     .research-card {
-        background: var(--surface); border-left: 4px solid var(--purple);
-        border-radius: 0 var(--radius) var(--radius) 0; padding: 18px; margin: 10px 0;
-        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        border-left: 3px solid var(--purple);
+        border-radius: 0 var(--radius) var(--radius) 0;
+        padding: 18px 20px;
+        margin: 10px 0;
+        border-top: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
     }
     .issue-card {
-        background: var(--surface); border-left: 4px solid var(--amber);
-        border-radius: 0 var(--radius) var(--radius) 0; padding: 16px; margin: 8px 0;
-        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        border-left: 3px solid var(--amber);
+        border-radius: 0 var(--radius) var(--radius) 0;
+        padding: 16px 20px;
+        margin: 8px 0;
+        border-top: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
     }
     .future-card {
-        background: var(--surface); border-left: 4px solid var(--cyan);
-        border-radius: 0 var(--radius) var(--radius) 0; padding: 16px; margin: 8px 0;
-        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        border-left: 3px solid var(--cyan);
+        border-radius: 0 var(--radius) var(--radius) 0;
+        padding: 16px 20px;
+        margin: 8px 0;
+        border-top: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
     }
     .agent-flow {
-        background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.83rem; color: var(--text2);
-        line-height: 1.7;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.83rem;
+        color: var(--text2);
+        line-height: 1.8;
     }
     .org-flow {
-        background: var(--bg); border: 1px solid rgba(249,115,22,0.2); border-radius: var(--radius-lg);
-        padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text2);
-        line-height: 1.7;
+        background: var(--bg2);
+        border: 1px solid rgba(255,120,73,0.18);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.82rem;
+        color: var(--text2);
+        line-height: 1.8;
     }
 
     /* ── ORG / SECTION 4 ────────────────────────────────────────── */
     .org-header {
-        background: linear-gradient(135deg, #071220 0%, #0e2040 50%, #071220 100%);
-        border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;
-        border: 1px solid rgba(59,130,246,0.2);
-        box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+        background: linear-gradient(135deg, #060d1a 0%, #0c1e38 50%, #060d1a 100%);
+        border-radius: var(--radius-2xl);
+        padding: 36px 40px;
+        margin-bottom: 28px;
+        border: 1px solid rgba(255,120,73,0.15);
+        box-shadow: 0 12px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+        position: relative; overflow: hidden;
+    }
+    .org-header::before {
+        content: "";
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(ellipse 60% 50% at 50% -10%, rgba(255,120,73,0.08), transparent 70%);
     }
     .member-card {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 14px; margin: 4px; text-align: center; transition: all 0.2s;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        margin: 4px;
+        text-align: center;
+        transition: all 0.22s;
     }
-    .member-card:hover { border-color: var(--blue); transform: translateY(-1px); }
+    .member-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--glow-blue); }
     .member-chip {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 14px 16px; margin: 6px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 14px 18px;
+        margin: 6px 0;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
         transition: border-color 0.2s;
     }
     .member-chip:hover { border-color: var(--border2); }
     .issue-tracker-card {
-        background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.2);
-        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+        background: rgba(255,179,64,0.04);
+        border: 1px solid rgba(255,179,64,0.18);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin: 6px 0;
     }
-    .issue-critical { border-left: 4px solid var(--red) !important; background: rgba(239,68,68,0.06) !important; }
-    .issue-major    { border-left: 4px solid var(--amber) !important; background: rgba(245,158,11,0.06) !important; }
-    .issue-minor    { border-left: 4px solid var(--green) !important; background: rgba(34,197,94,0.06) !important; }
-    .subagent-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .issue-critical { border-left: 3px solid var(--red) !important; background: rgba(255,71,87,0.05) !important; }
+    .issue-major    { border-left: 3px solid var(--amber) !important; background: rgba(255,179,64,0.05) !important; }
+    .issue-minor    { border-left: 3px solid var(--green) !important; background: rgba(16,232,126,0.05) !important; }
+    .subagent-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 14px; }
     .workflow-step  {
-        background: var(--surface); border-radius: var(--radius); padding: 12px;
-        border: 1px solid var(--border); text-align: center; transition: all 0.2s;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border-radius: var(--radius);
+        padding: 14px;
+        border: 1px solid var(--border);
+        text-align: center;
+        transition: all 0.22s;
     }
-    .workflow-step:hover { border-color: var(--blue); }
+    .workflow-step:hover { border-color: var(--blue); transform: translateY(-2px); }
     .connector-line { color: var(--blue); font-size: 1.5rem; text-align: center; }
     .master-agent-box {
-        background: linear-gradient(135deg, rgba(30,58,95,0.6), rgba(26,26,62,0.6));
-        border: 2px solid var(--blue); border-radius: var(--radius-xl); padding: 24px;
-        text-align: center; margin: 12px 0; box-shadow: var(--glow-blue);
-        position: relative; overflow: hidden;
+        background: linear-gradient(135deg, rgba(20,40,100,0.5), rgba(15,25,70,0.5));
+        border: 2px solid rgba(79,142,247,0.5);
+        border-radius: var(--radius-xl);
+        padding: 28px;
+        text-align: center;
+        margin: 14px 0;
+        box-shadow: var(--glow-blue);
+        position: relative;
+        overflow: hidden;
     }
     .master-agent-box::before {
-        content: ""; position: absolute; inset: 0;
-        background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.1), transparent 70%);
+        content: "";
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,0.12), transparent 70%);
     }
     .result-success {
-        background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2);
-        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+        background: rgba(16,232,126,0.05);
+        border: 1px solid rgba(16,232,126,0.2);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin: 6px 0;
     }
     .result-error {
-        background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);
-        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+        background: rgba(255,71,87,0.05);
+        border: 1px solid rgba(255,71,87,0.2);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin: 6px 0;
     }
     .synthesis-report {
-        background: var(--surface); border: 1px solid rgba(139,92,246,0.3);
-        border-radius: var(--radius-xl); padding: 28px; margin: 12px 0;
-        box-shadow: 0 4px 24px rgba(139,92,246,0.08);
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid rgba(167,139,250,0.25);
+        border-radius: var(--radius-2xl);
+        padding: 32px;
+        margin: 14px 0;
+        box-shadow: 0 4px 30px rgba(167,139,250,0.08);
     }
 
     /* ── HERO / DASHBOARD ───────────────────────────────────────── */
     .hero-header {
-        background: linear-gradient(135deg, #060f22 0%, #0d1f3f 50%, #060f22 100%);
-        padding: 48px 40px; border-radius: var(--radius-xl); margin-bottom: 32px;
-        text-align: center; position: relative; overflow: hidden;
-        border: 1px solid rgba(59,130,246,0.15);
-        box-shadow: 0 16px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+        background: linear-gradient(135deg, #040a1a 0%, #081530 40%, #0c1f42 60%, #040a1a 100%);
+        padding: 56px 48px;
+        border-radius: var(--radius-2xl);
+        margin-bottom: 36px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(79,142,247,0.12);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .hero-header::before {
-        content: ""; position: absolute; inset: 0; pointer-events: none;
+        content: "";
+        position: absolute; inset: 0; pointer-events: none;
         background:
-            radial-gradient(ellipse 60% 50% at 50% -10%, rgba(59,130,246,0.12) 0%, transparent 70%),
-            radial-gradient(ellipse 40% 30% at 90% 50%, rgba(6,182,212,0.06) 0%, transparent 60%);
+            radial-gradient(ellipse 70% 60% at 50% -5%, rgba(79,142,247,0.16) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 35% at 92% 55%, rgba(0,212,255,0.08) 0%, transparent 55%),
+            radial-gradient(ellipse 35% 30% at 8% 55%, rgba(167,139,250,0.06) 0%, transparent 55%);
     }
     .hero-header::after {
-        content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-        background: radial-gradient(circle, rgba(59,130,246,0.03) 0%, transparent 70%);
-        animation: rotate 30s linear infinite; pointer-events: none;
+        content: "";
+        position: absolute; inset: -50%;
+        width: 200%; height: 200%;
+        background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(79,142,247,0.03) 60deg, transparent 120deg);
+        animation: hero-rotate 40s linear infinite;
+        pointer-events: none;
     }
     .hero-stat {
-        text-align: center; padding: 12px 20px;
-        border-right: 1px solid rgba(59,130,246,0.15);
+        text-align: center;
+        padding: 14px 24px;
+        border-right: 1px solid rgba(79,142,247,0.12);
+        position: relative;
     }
     .hero-stat:last-child { border-right: none; }
-    .hero-stat-value { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: #fff; line-height: 1; }
-    .hero-stat-label { font-size: 0.7rem; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .hero-stat-value {
+        font-family: 'Outfit', sans-serif;
+        font-size: 2rem;
+        font-weight: 900;
+        color: #fff;
+        line-height: 1;
+        letter-spacing: -0.04em;
+    }
+    .hero-stat-label {
+        font-size: 0.68rem;
+        color: rgba(79,142,247,0.7);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-top: 5px;
+        font-family: 'JetBrains Mono', monospace;
+    }
 
     /* ── METRIC CARDS ───────────────────────────────────────────── */
     .metric-card {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 22px; transition: all 0.22s ease; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px 22px;
+        margin: 6px 0;
+        transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
+        font-size: 0.9rem;
+        color: var(--text2);
     }
     .metric-card::before {
-        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(79,142,247,0.5), transparent);
     }
-    .metric-card:hover { transform: translateY(-3px); border-color: var(--blue); box-shadow: var(--glow-blue); }
+    .metric-card::after {
+        content: "";
+        position: absolute;
+        bottom: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0,212,255,0.15), transparent);
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--border2);
+        box-shadow: var(--glow-blue);
+        color: var(--text);
+    }
 
-    /* ── NODE CARDS (workflow) ───────────────────────────────────── */
+    /* ── NODE CARDS ─────────────────────────────────────────────── */
     .node-card {
-        background: var(--surface2); border: 2px solid var(--blue); border-radius: var(--radius-lg);
-        padding: 16px; min-width: 130px; text-align: center;
-        transition: all 0.2s; box-shadow: var(--glow-blue);
+        background: linear-gradient(135deg, var(--surface2), var(--surface3));
+        border: 2px solid rgba(79,142,247,0.4);
+        border-radius: var(--radius-lg);
+        padding: 18px;
+        min-width: 140px;
+        text-align: center;
+        transition: all 0.22s;
+        box-shadow: var(--glow-blue);
     }
-    .node-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(59,130,246,0.25); }
+    .node-card:hover { transform: translateY(-3px); box-shadow: 0 10px 40px rgba(79,142,247,0.3); }
 
     /* ── KNOWLEDGE BASE CARDS ───────────────────────────────────── */
     .kb-entry {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-        padding: 14px 16px; margin: 6px 0; transition: border-color 0.2s;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        margin: 7px 0;
+        transition: border-color 0.2s;
     }
     .kb-entry:hover { border-color: var(--border2); }
 
     /* ── API STEP GUIDES ────────────────────────────────────────── */
     .api-step {
-        background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.2);
-        border-radius: var(--radius); padding: 14px 16px; margin: 8px 0; font-size: 0.87rem;
+        background: rgba(16,232,126,0.04);
+        border: 1px solid rgba(16,232,126,0.18);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin: 8px 0;
+        font-size: 0.88rem;
     }
-    .api-step a { color: var(--blue) !important; text-decoration: none; }
-    .api-step a:hover { text-decoration: underline; }
+    .api-step a { color: var(--blue-bright) !important; text-decoration: none; }
+    .api-step a:hover { text-decoration: underline; color: var(--cyan) !important; }
 
     /* ── QUICK LAUNCH CARDS ──────────────────────────────────────── */
     .quick-launch-card {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 20px; text-align: center; cursor: pointer; transition: all 0.22s;
-        position: relative; overflow: hidden;
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 22px 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
     }
     .quick-launch-card::before {
-        content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+        content: "";
+        position: absolute;
+        bottom: 0; left: 0; right: 0; height: 2px;
         background: linear-gradient(90deg, var(--blue), var(--cyan));
-        transform: scaleX(0); transition: transform 0.22s;
+        transform: scaleX(0);
+        transition: transform 0.25s;
+        transform-origin: left;
     }
-    .quick-launch-card:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: var(--glow-blue); }
+    .quick-launch-card:hover {
+        border-color: var(--border3);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.4), var(--glow-blue);
+    }
     .quick-launch-card:hover::before { transform: scaleX(1); }
 
     /* ── HUB / SECTION 5 ────────────────────────────────────────── */
     .hub-hero {
-        background: linear-gradient(135deg, #030d04, #061a06, #030d04);
-        border: 1px solid rgba(22,163,74,0.25); border-radius: var(--radius-xl);
-        padding: 36px; margin-bottom: 28px;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 60px rgba(22,163,74,0.04);
+        background: linear-gradient(135deg, #020a03, #041208, #020a03);
+        border: 1px solid rgba(16,232,126,0.2);
+        border-radius: var(--radius-2xl);
+        padding: 40px;
+        margin-bottom: 32px;
+        box-shadow: 0 12px 50px rgba(0,0,0,0.5), 0 0 80px rgba(16,232,126,0.03);
     }
     .login-card {
-        background: var(--bg2); border: 1px solid rgba(22,163,74,0.3); border-radius: var(--radius-xl);
-        padding: 36px; max-width: 460px; margin: 40px auto;
-        box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+        background: linear-gradient(135deg, var(--bg2), var(--surface));
+        border: 1px solid rgba(16,232,126,0.25);
+        border-radius: var(--radius-2xl);
+        padding: 40px;
+        max-width: 480px;
+        margin: 48px auto;
+        box-shadow: 0 12px 50px rgba(0,0,0,0.6);
     }
     .member-avatar {
-        width: 44px; height: 44px; border-radius: 50%;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-weight: 800; font-size: 1.1rem; color: #fff;
-        font-family: 'Syne', sans-serif;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: #fff;
+        font-family: 'Outfit', sans-serif;
+        box-shadow: 0 3px 12px rgba(0,0,0,0.4);
     }
     .automation-card {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 18px; margin: 8px 0; transition: all 0.2s; cursor: default;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin: 9px 0;
+        transition: all 0.22s;
     }
     .automation-card:hover { border-color: var(--border2); background: var(--surface2); }
     .run-log-entry {
-        font-family: 'JetBrains Mono', monospace; font-size: 0.79rem;
-        padding: 4px 8px; border-radius: 4px; margin: 2px 0;
-        background: rgba(255,255,255,0.03); border-left: 2px solid var(--border);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.78rem;
+        padding: 5px 10px;
+        border-radius: 6px;
+        margin: 2px 0;
+        background: rgba(255,255,255,0.02);
+        border-left: 2px solid var(--border);
     }
-    .run-log-entry.level-info  { border-left-color: var(--blue); }
-    .run-log-entry.level-warn  { border-left-color: var(--amber); }
-    .run-log-entry.level-error { border-left-color: var(--red); }
+    .run-log-entry.level-info    { border-left-color: var(--blue); }
+    .run-log-entry.level-warn    { border-left-color: var(--amber); }
+    .run-log-entry.level-error   { border-left-color: var(--red); }
     .run-log-entry.level-success { border-left-color: var(--green); }
 
     /* ── SECTION 6 / DOCS ───────────────────────────────────────── */
     .doc-section {
-        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
-        padding: 24px; margin: 12px 0;
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 26px;
+        margin: 14px 0;
     }
     .doc-section h3 { color: var(--cyan) !important; }
 
+    /* ── SECTION 5 OVERRIDES ────────────────────────────────────── */
+    .hub-tab-badge {
+        background: rgba(16,232,126,0.1);
+        color: var(--green);
+        padding: 5px 16px;
+        border-radius: 99px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border: 1px solid rgba(16,232,126,0.25);
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .svc-connected {
+        background: rgba(16,232,126,0.05);
+        border: 2px solid rgba(16,232,126,0.3);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin: 11px 0;
+        transition: all 0.22s;
+    }
+    .svc-connected:hover { border-color: rgba(16,232,126,0.5); }
+    .svc-disconnected {
+        background: var(--surface);
+        border: 1px dashed var(--border2);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin: 11px 0;
+        opacity: 0.75;
+    }
+    .verified-badge {
+        background: rgba(16,232,126,0.12);
+        color: var(--green);
+        padding: 3px 12px;
+        border-radius: 99px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border: 1px solid rgba(16,232,126,0.28);
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .ai-badge {
+        background: rgba(167,139,250,0.12);
+        color: var(--purple);
+        padding: 3px 12px;
+        border-radius: 99px;
+        font-size: 0.72rem;
+        border: 1px solid rgba(167,139,250,0.28);
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .run-card {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 20px;
+        margin: 9px 0;
+    }
+    .run-log-line {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.79rem;
+        padding: 3px 0;
+        color: var(--text2);
+    }
+    .run-log-real  { color: var(--green) !important; font-weight: 600; }
+    .run-log-error { color: var(--red) !important; }
+    .auto-block {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        margin: 11px 0;
+        transition: border-color 0.22s;
+    }
+    .auto-block:hover { border-color: var(--border2); }
+
     /* ── ANIMATIONS ─────────────────────────────────────────────── */
-    @keyframes pulse     { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
-    @keyframes text-pulse{ 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
-    @keyframes rotate    { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes pulse       { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes badge-pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,212,255,0.3); } 50% { opacity: 0.85; box-shadow: 0 0 0 6px rgba(0,212,255,0); } }
+    @keyframes text-pulse  { 0%,100% { opacity: 1; } 50% { opacity: 0.65; } }
+    @keyframes hero-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes shimmer {
-        0%   { background-position: -400px 0; }
-        100% { background-position: 400px 0; }
+        0%   { background-position: -600px 0; }
+        100% { background-position: 600px 0; }
     }
     @keyframes skeleton-loading { 0% { opacity: 0.5; } 50% { opacity: 1.0; } 100% { opacity: 0.5; } }
     @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(12px); }
+        from { opacity: 0; transform: translateY(16px); }
         to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-20px); }
+        to   { opacity: 1; transform: translateX(0); }
     }
     @keyframes glow-pulse {
         0%,100% { box-shadow: var(--glow-blue); }
-        50% { box-shadow: 0 0 40px rgba(59,130,246,0.3); }
+        50% { box-shadow: 0 0 50px rgba(79,142,247,0.35); }
+    }
+    @keyframes scan-line {
+        0%   { top: -100%; }
+        100% { top: 200%; }
     }
 
     .loading-pulse { animation: skeleton-loading 1.4s ease-in-out infinite; }
-    .fade-in       { animation: fadeInUp 0.4s ease-out; }
+    .fade-in       { animation: fadeInUp 0.45s ease-out; }
+    .slide-in      { animation: slideInLeft 0.35s ease-out; }
 
     /* ── SCROLLBAR ───────────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1975,91 +2517,122 @@ def render_hero_dashboard():
     success_rate = round(100 * n_done / max(len(tasks),1), 1)
     budget = get_daily_budget_stats()
     org_runs = get_org_workflow_runs(5)
-    sr_color = "#4ade80" if success_rate >= 80 else "#fbbf24" if success_rate >= 60 else "#f87171"
+    sr_color = "#10e87e" if success_rate >= 80 else "#ffb340" if success_rate >= 60 else "#ff4757"
 
     st.markdown(f'''
     <div class="hero-header">
         <div style="position:relative;z-index:1;">
-            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:99px;padding:5px 16px;margin-bottom:16px;">
-                <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
-                <span style="color:#93c5fd;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">SYSTEM ONLINE · v5.5</span>
+            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:99px;padding:6px 20px;margin-bottom:20px;">
+                <span style="width:8px;height:8px;background:#10e87e;border-radius:50%;display:inline-block;box-shadow:0 0 12px #10e87e;animation:pulse 2s infinite;"></span>
+                <span style="color:rgba(79,142,247,0.9);font-size:0.7rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">ALL SYSTEMS OPERATIONAL · v5.6</span>
             </div>
-            <h1 style="color:#f0f4ff;margin:0 0 10px;font-size:3rem;font-weight:800;letter-spacing:-0.04em;font-family:'Syne',sans-serif;line-height:1.1;">SAAP COMMAND CENTER</h1>
-            <p style="color:#60a5fa;font-size:1rem;margin:0 0 32px;font-weight:400;opacity:0.85;">Smart Autonomous Agent Platform · Enterprise Orchestration</p>
-            <div style="display:flex;justify-content:center;align-items:stretch;gap:0;background:rgba(255,255,255,0.03);border:1px solid rgba(59,130,246,0.12);border-radius:14px;padding:16px 0;flex-wrap:wrap;max-width:700px;margin:0 auto;">
+            <h1 style="color:#eef2ff;margin:0 0 8px;font-size:3.6rem;font-weight:900;letter-spacing:-0.05em;font-family:'Outfit',sans-serif;line-height:1.05;text-shadow:0 0 60px rgba(79,142,247,0.25);">SAAP COMMAND CENTER</h1>
+            <p style="color:rgba(139,163,196,0.85);font-size:1.05rem;margin:0 0 36px;font-weight:400;letter-spacing:0.01em;">Smart Autonomous Agent Platform &nbsp;·&nbsp; Enterprise AI Orchestration &nbsp;·&nbsp; 12 Live Agents</p>
+            <div style="display:flex;justify-content:center;align-items:stretch;gap:0;background:rgba(255,255,255,0.025);border:1px solid rgba(79,142,247,0.1);border-radius:18px;padding:20px 0;flex-wrap:wrap;max-width:760px;margin:0 auto;backdrop-filter:blur(10px);">
                 <div class="hero-stat"><div class="hero-stat-value">{len(tasks)}</div><div class="hero-stat-label">Total Tasks</div></div>
                 <div class="hero-stat"><div class="hero-stat-value" style="color:{sr_color};">{success_rate}%</div><div class="hero-stat-label">Success Rate</div></div>
-                <div class="hero-stat"><div class="hero-stat-value" style="font-size:1.3rem;">{get_platform_uptime()}</div><div class="hero-stat-label">Uptime</div></div>
-                <div class="hero-stat"><div class="hero-stat-value" style="color:#fbbf24;">{len(org_runs)}</div><div class="hero-stat-label">Org Workflows</div></div>
-                <div class="hero-stat" style="border-right:none;"><div class="hero-stat-value" style="color:#c084fc;">{budget["total"]:,}</div><div class="hero-stat-label">Tokens Today</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="font-size:1.5rem;letter-spacing:-0.02em;">{get_platform_uptime()}</div><div class="hero-stat-label">Uptime</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="color:#ffb340;">{len(org_runs)}</div><div class="hero-stat-label">Org Workflows</div></div>
+                <div class="hero-stat" style="border-right:none;"><div class="hero-stat-value" style="color:#a78bfa;">{budget["total"]:,}</div><div class="hero-stat-label">Tokens Today</div></div>
             </div>
         </div>
     </div>
     ''', unsafe_allow_html=True)
 
-    c1, c2 = st.columns([2, 1])
+    c1, c2 = st.columns([3, 2])
     with c1:
-        st.subheader("🌐 Agent Network Topology")
-        st.markdown("""
-```text
-      ┌───────────── Master Coordinator Agent ─────────────┐
-      │                                                   │
-      ▼                                                   ▼
- [📧 Gmail] ──▶ [📅 Calendar] ──▶ [🐙 GitHub] ──▶ [📝 Notion]
-      │              ▲               │              ▲
- [📊 Sheets] ◀─── [📁 Drive] ◀───── [🌐 Web] ◀─── [💬 Slack]
-      │                                               │
- [🎯 Jira]  ──▶ [🔷 Linear] ──▶ [🏢 HubSpot] ──▶ [🗃️ Airtable]
-```
-""")
+        st.markdown('''<div style="background:linear-gradient(135deg,#0a1120,#0e1829);border:1px solid #162034;border-radius:20px;padding:28px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(79,142,247,0.5),transparent);"></div>
+        <div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:18px;font-weight:600;">🌐 Live Agent Network Topology</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:#8ba3c4;line-height:2.0;">
+        <span style="color:#4f8ef7;">┌──────────── Master Coordinator Agent ────────────┐</span><br/>
+        <span style="color:#4f8ef7;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">│</span><br/>
+        <span style="color:#00d4ff;">▼</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#00d4ff;">▼</span><br/>
+        <span style="color:#eef2ff;">📧 Gmail</span> ──▶ <span style="color:#eef2ff;">📅 Calendar</span> ──▶ <span style="color:#eef2ff;">🐙 GitHub</span> ──▶ <span style="color:#eef2ff;">📝 Notion</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">▲</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">▲</span><br/>
+        <span style="color:#eef2ff;">📊 Sheets</span> ◀── <span style="color:#eef2ff;">📁 Drive</span> ◀────── <span style="color:#eef2ff;">🌐 Web</span> ◀──── <span style="color:#eef2ff;">💬 Slack</span><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#4f8ef7;">│</span><br/>
+        <span style="color:#eef2ff;">🎯 Jira</span> &nbsp;──▶ <span style="color:#eef2ff;">🔷 Linear</span> ──▶ <span style="color:#eef2ff;">🏢 HubSpot</span> ──▶ <span style="color:#eef2ff;">🗃️ Airtable</span>
+        </div>
+        </div>''', unsafe_allow_html=True)
+
     with c2:
-        st.subheader("📊 Intelligence Panel")
+        st.markdown('''<div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;font-weight:600;">📊 Intelligence Panel</div>''', unsafe_allow_html=True)
         most_used = Counter(t["agent_name"] for t in tasks).most_common(1)
-        st.markdown(f'<div class="metric-card">🏆 Most-Used Agent: <strong>{most_used[0][0] if most_used else "N/A"}</strong></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-card">✅ Completed: <strong>{n_done}</strong> | ❌ Failed: <strong>{n_fail}</strong></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-card">💰 Est. Cost Today: <strong>${budget["cost"]:.4f}</strong></div>', unsafe_allow_html=True)
+        mu_name = most_used[0][0] if most_used else "N/A"
+        mu_count = most_used[0][1] if most_used else 0
+        st.markdown(f'''
+        <div class="metric-card" style="margin-bottom:8px;">
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">🏆 Top Agent</div>
+            <div style="color:#eef2ff;font-weight:700;font-size:0.95rem;">{mu_name}</div>
+            <div style="color:#4a6280;font-size:0.78rem;margin-top:2px;">{mu_count} executions</div>
+        </div>
+        <div class="metric-card" style="margin-bottom:8px;">
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">⚡ Execution</div>
+            <div><span style="color:#10e87e;font-weight:700;">✅ {n_done}</span> &nbsp;<span style="color:#4a6280;">|</span>&nbsp; <span style="color:#ff4757;font-weight:700;">❌ {n_fail}</span></div>
+        </div>
+        <div class="metric-card" style="margin-bottom:8px;">
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">💰 Cost Today</div>
+            <div style="color:#ffb340;font-weight:700;font-size:1.1rem;">${budget["cost"]:.4f}</div>
+        </div>
+        ''', unsafe_allow_html=True)
         if org_runs:
-            st.markdown(f'<div class="metric-card">🏢 Last Org Run: <strong>{org_runs[0]["created_at"][:16]}</strong></div>', unsafe_allow_html=True)
+            st.markdown(f'''<div class="metric-card">
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">🏢 Last Org Run</div>
+            <div style="color:#8ba3c4;font-size:0.84rem;">{org_runs[0]["created_at"][:16]}</div>
+        </div>''', unsafe_allow_html=True)
 
     st.divider()
-    st.subheader("🚀 Quick Launch Agent Portal")
-    st.caption("Select any agent below to jump to the Run Agent page.")
-    for i, a_row in enumerate([list(SUB_AGENTS.items())[i:i+6] for i in range(0, 12, 6)]):
+    st.markdown('''<div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:16px;font-weight:600;">🚀 Quick Launch Agent Portal</div>''', unsafe_allow_html=True)
+
+    CAT_GRADIENTS = {
+        "Google Workspace": ("rgba(66,133,244,0.12)", "#4285F4"),
+        "Dev Tools":        ("rgba(16,232,126,0.08)", "#10e87e"),
+        "CRM":              ("rgba(255,179,64,0.08)",  "#ffb340"),
+        "Messaging":        ("rgba(167,139,250,0.08)", "#a78bfa"),
+        "Productivity":     ("rgba(0,212,255,0.08)",   "#00d4ff"),
+        "Web":              ("rgba(79,142,247,0.08)",  "#4f8ef7"),
+    }
+    for a_row in [list(SUB_AGENTS.items())[i:i+6] for i in range(0, 12, 6)]:
         cols = st.columns(6)
         for j, (name, agent) in enumerate(a_row):
             with cols[j]:
-                cat_color = {"Google Workspace": "#4285F4", "Dev Tools": "#22c55e", "CRM": "#f59e0b", "Messaging": "#8b5cf6", "Productivity": "#06b6d4", "Web": "#3b82f6"}.get(agent.get("category",""), "#3b82f6")
-                st.markdown(f'''<div class="quick-launch-card" style="border-top:3px solid {cat_color};">
-                  <div style="font-size:1.8rem;">{agent["icon"]}</div>
-                  <div style="color:white;font-weight:600;font-size:0.8rem;margin-top:4px;">{agent["name"]}</div>
-                  <div style="color:#64748b;font-size:0.68rem;margin-top:2px;">{agent.get("category","")}</div>
+                bg_clr, border_clr = CAT_GRADIENTS.get(agent.get("category",""), ("rgba(79,142,247,0.08)", "#4f8ef7"))
+                st.markdown(f'''<div class="quick-launch-card" style="background:linear-gradient(135deg,{bg_clr},{bg_clr.replace("0.08","0.04")});border-top:2px solid {border_clr};border-color:{border_clr}30;">
+                  <div style="font-size:2rem;margin-bottom:8px;">{agent["icon"]}</div>
+                  <div style="color:#eef2ff;font-weight:700;font-size:0.78rem;line-height:1.3;">{agent["name"]}</div>
+                  <div style="color:{border_clr};font-size:0.65rem;margin-top:5px;font-family:'JetBrains Mono',monospace;opacity:0.8;">{agent.get("category","")}</div>
                 </div>''', unsafe_allow_html=True)
 
     st.divider()
 
-    # What's new + Getting started
     col_new, col_start = st.columns(2)
     with col_new:
-        st.subheader("🆕 What's New in v5.5")
-        st.markdown("""
-- **Section 5 Hub:** Google OAuth login, real API verification
-- **Google AI Agents:** Gemini AI, Google Search, Vertex AI, Sheets Live
-- **Analytics:** Token budget tracking, agent leaderboard, CSV export
-- **Knowledge Base:** AI-powered research assistant, search & filter
-- **Research Analyst:** Comparison mode, 6 analysis modes, history
-- **Run History:** Full-text search, bulk CSV export, raw JSON view
-- **Members:** Activity stats, audit log, member search
-""")
+        st.markdown('''<div style="background:linear-gradient(135deg,#0a1120,#0e1829);border:1px solid #162034;border-radius:20px;padding:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.4),transparent);"></div>
+        <div style="font-size:0.72rem;color:rgba(0,212,255,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:14px;font-weight:600;">🆕 What's New in v5.6</div>
+        <div style="color:#8ba3c4;font-size:0.88rem;line-height:1.9;">
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Section 5 Hub</strong> — Google OAuth login, real API verification<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Google AI Agents</strong> — Gemini AI, Search, Vertex AI, Sheets Live<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Analytics</strong> — Token budget tracking, leaderboard, CSV export<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Knowledge Base</strong> — AI research assistant, search & filter<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Research Analyst</strong> — Comparison mode, 6 analysis modes<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Org Chat</strong> — Real-time multi-user AI-routed chat system<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Activity Feed</strong> — Cross-section real-time event bus
+        </div></div>''', unsafe_allow_html=True)
+
     with col_start:
-        st.subheader("🧭 Getting Started")
-        st.markdown("""
-1. 🔑 **Get Groq API Key** (free) → [console.groq.com](https://console.groq.com)
-2. 🏢 **Section 4 — Org Mode:** Run the Master Coordinator with 12 agents
-3. 🔬 **Section 2 — Research Agent:** Deep research on any topic
-4. ⚡ **Section 5 — Live Hub:** Connect real APIs, build automations
-5. 📚 **Knowledge Base:** Feed your org data for contextual outputs
-6. 📊 **Analytics:** Monitor token usage, costs, and success rates
-""")
+        st.markdown('''<div style="background:linear-gradient(135deg,#0a1120,#0e1829);border:1px solid #162034;border-radius:20px;padding:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(16,232,126,0.4),transparent);"></div>
+        <div style="font-size:0.72rem;color:rgba(16,232,126,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:14px;font-weight:600;">🧭 Getting Started</div>
+        <div style="color:#8ba3c4;font-size:0.88rem;line-height:2.0;">
+        <span style="color:#10e87e;font-weight:700;">01</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Get Groq API Key</span> <span style="color:#4a6280;">(free) → console.groq.com</span><br/>
+        <span style="color:#10e87e;font-weight:700;">02</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 4 — Org Mode</span> <span style="color:#4a6280;">Run 12 agents</span><br/>
+        <span style="color:#10e87e;font-weight:700;">03</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 2 — Research</span> <span style="color:#4a6280;">Deep AI research</span><br/>
+        <span style="color:#10e87e;font-weight:700;">04</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 5 — Live Hub</span> <span style="color:#4a6280;">Connect real APIs</span><br/>
+        <span style="color:#10e87e;font-weight:700;">05</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 8 — Org Chat</span> <span style="color:#4a6280;">Multi-user AI chat</span><br/>
+        <span style="color:#10e87e;font-weight:700;">06</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Analytics Dashboard</span> <span style="color:#4a6280;">Monitor & export</span>
+        </div></div>''', unsafe_allow_html=True)
 
 def render_section_6_docs():
     st.markdown('<span class="org-badge">📖 SECTION 6 — DOCUMENTATION</span>', unsafe_allow_html=True)
@@ -2093,9 +2666,15 @@ Compared to other platforms:
 with st.sidebar:
     # Brand header
     st.markdown("""
-<div style="padding:12px 0 4px;">
-  <div style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#f0f4ff;letter-spacing:-0.02em;">SAAP <span style="color:#3b82f6;">v5.5</span></div>
-  <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-top:2px;">Autonomous Agent Platform</div>
+<div style="padding:14px 0 6px;position:relative;">
+  <div style="font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:900;color:#eef2ff;letter-spacing:-0.04em;line-height:1;">
+    SAAP <span style="background:linear-gradient(90deg,#4f8ef7,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">v5.6</span>
+  </div>
+  <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-top:4px;font-weight:500;">Autonomous Agent Platform</div>
+  <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+    <span style="width:6px;height:6px;background:#10e87e;border-radius:50%;box-shadow:0 0 8px #10e87e;animation:pulse 2s infinite;display:inline-block;"></span>
+    <span style="font-size:0.66rem;color:#10e87e;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.08em;">LIVE · 12 AGENTS READY</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
     st.divider()
@@ -2114,9 +2693,9 @@ with st.sidebar:
         help="Free key at console.groq.com"
     )
     if secret_key:
-        st.markdown('<span style="color:#4ade80;font-size:0.78rem;">✅ Key loaded from secrets</span>', unsafe_allow_html=True)
+        st.markdown('<span style="color:#10e87e;font-size:0.78rem;">✅ Key loaded from secrets</span>', unsafe_allow_html=True)
     else:
-        st.markdown('<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:0.8rem;color:#60a5fa;">Get a free key → <a href="https://console.groq.com" target="_blank" style="color:#93c5fd;text-decoration:underline;">console.groq.com</a></div>', unsafe_allow_html=True)
+        st.markdown('<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:0.8rem;color:#4f8ef7;">Get a free key → <a href="https://console.groq.com" target="_blank" style="color:rgba(79,142,247,0.9);text-decoration:underline;">console.groq.com</a></div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -2238,7 +2817,7 @@ if page == "org_mode":
     <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);border-radius:99px;padding:4px 14px;margin-bottom:14px;">
       <span style="color:#fb923c;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">ENTERPRISE ORCHESTRATION MODE</span>
     </div>
-    <h1 style="color:#f0f4ff;margin:0 0 10px;font-size:2.4rem;font-weight:800;letter-spacing:-0.03em;font-family:'Syne',sans-serif;">🏢 Organisation Intelligence Platform</h1>
+    <h1 style="color:#f0f4ff;margin:0 0 10px;font-size:2.4rem;font-weight:800;letter-spacing:-0.03em;font-family:'Outfit',sans-serif;">🏢 Organisation Intelligence Platform</h1>
     <p style="color:#94a8c8;margin:0;font-size:0.95rem;line-height:1.6;">
       <span style="color:#fb923c;font-weight:600;">1</span> Master Coordinator · <span style="color:#fb923c;font-weight:600;">12</span> Specialist Sub-Agents · <span style="color:#fb923c;font-weight:600;">9</span> Real API Integrations · Live Issue Tracking · Multi-User RBAC
     </p>
@@ -2286,7 +2865,7 @@ if page == "org_mode":
 <div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
 <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:8px 0 12px;">
   <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
-    <div style="color:#60a5fa;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Google Workspace</div>
+    <div style="color:#4f8ef7;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Google Workspace</div>
     <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">📧 Gmail<br>📅 Calendar<br>📁 Drive<br>📊 Sheets</div>
   </div>
   <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
@@ -2294,7 +2873,7 @@ if page == "org_mode":
     <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">🐙 GitHub<br>🎯 Jira<br>🔷 Linear<br>🌐 Scraper</div>
   </div>
   <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
-    <div style="color:#4ade80;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Business Ops</div>
+    <div style="color:#10e87e;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Business Ops</div>
     <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">💬 Slack<br>🏢 HubSpot<br>📝 Notion<br>🗃️ Airtable</div>
   </div>
 </div>
@@ -2302,7 +2881,7 @@ if page == "org_mode":
 <div style="text-align:center;">
   <div style="display:inline-block;background:rgba(139,92,246,0.1);border:2px solid rgba(139,92,246,0.35);border-radius:12px;padding:14px 28px;max-width:440px;">
     <div style="font-size:1.3rem;margin-bottom:4px;">🧠</div>
-    <div style="color:#c084fc;font-weight:700;font-size:0.9rem;">MASTER SYNTHESIZER</div>
+    <div style="color:#a78bfa;font-weight:700;font-size:0.9rem;">MASTER SYNTHESIZER</div>
     <div style="color:var(--text2);font-size:0.78rem;margin-top:4px;">Integrates outputs · Executive Report · Issue Tracker · Strategic Recommendations</div>
   </div>
 </div>
@@ -2527,7 +3106,7 @@ if page == "org_mode":
     <span style="color:#5a7090;font-size:0.82rem;font-family:'JetBrains Mono',monospace;">{issue.get('agent_from','?')} → {issue.get('agent_to','?')}</span>
   </div>
   <p style="color:#94a8c8;font-size:0.85rem;margin:0 0 6px;line-height:1.5;">{issue['description'][:160]}</p>
-  <div style="display:flex;align-items:center;gap:6px;"><span style="color:#60a5fa;font-size:0.75rem;font-weight:600;">💡 FIX:</span><span style="color:#60a5fa;font-size:0.82rem;">{issue['suggested_fix'][:110]}</span></div>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="color:#4f8ef7;font-size:0.75rem;font-weight:600;">💡 FIX:</span><span style="color:#4f8ef7;font-size:0.82rem;">{issue['suggested_fix'][:110]}</span></div>
 </div>
 """, unsafe_allow_html=True)
                 st.info("Full issue analysis in **Issue Tracker** tab →")
@@ -2827,23 +3406,23 @@ if page == "org_mode":
         st.markdown(f"""
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
   <div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:var(--text);font-family:'Syne',sans-serif;">{len(all_issues)}</div>
+    <div style="font-size:1.6rem;font-weight:800;color:var(--text);font-family:'Outfit',sans-serif;">{len(all_issues)}</div>
     <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Total</div>
   </div>
   <div style="flex:1;min-width:100px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:16px;text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#f87171;font-family:'Syne',sans-serif;">{len(critical)}</div>
+    <div style="font-size:1.6rem;font-weight:800;color:#ff4757;font-family:'Outfit',sans-serif;">{len(critical)}</div>
     <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Critical</div>
   </div>
   <div style="flex:1;min-width:100px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:16px;text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#fbbf24;font-family:'Syne',sans-serif;">{len(major)}</div>
+    <div style="font-size:1.6rem;font-weight:800;color:#ffb340;font-family:'Outfit',sans-serif;">{len(major)}</div>
     <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Major</div>
   </div>
   <div style="flex:1;min-width:100px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:16px;text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#60a5fa;font-family:'Syne',sans-serif;">{len(open_issues)}</div>
+    <div style="font-size:1.6rem;font-weight:800;color:#4f8ef7;font-family:'Outfit',sans-serif;">{len(open_issues)}</div>
     <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Open</div>
   </div>
   <div style="flex:1;min-width:100px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:12px;padding:16px;text-align:center;">
-    <div style="font-size:1.6rem;font-weight:800;color:#4ade80;font-family:'Syne',sans-serif;">{len(resolved)}</div>
+    <div style="font-size:1.6rem;font-weight:800;color:#10e87e;font-family:'Outfit',sans-serif;">{len(resolved)}</div>
     <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Resolved</div>
   </div>
 </div>""", unsafe_allow_html=True)
@@ -2884,13 +3463,13 @@ if page == "org_mode":
     <span style="color:var(--text3);font-size:0.75rem;font-family:'JetBrains Mono',monospace;">{issue.get('created_at','')[:16]}</span>
   </div>
   <div style="color:var(--text2);margin-bottom:6px;font-size:0.84rem;">
-    Agent: <code style="background:var(--surface2);padding:1px 6px;border-radius:4px;color:#93c5fd;">{issue.get('agent_name','?')}</code>
+    Agent: <code style="background:var(--surface2);padding:1px 6px;border-radius:4px;color:rgba(79,142,247,0.9);">{issue.get('agent_name','?')}</code>
     &nbsp;|&nbsp; Type: <span style="color:var(--text2);">{issue.get('issue_type','?')}</span>
   </div>
   <p style="color:var(--text2);margin:0 0 8px;font-size:0.86rem;line-height:1.5;">{issue.get('description','')[:220]}</p>
   <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px;padding:8px 10px;display:flex;gap:6px;align-items:flex-start;">
-    <span style="color:#60a5fa;font-size:0.75rem;font-weight:700;white-space:nowrap;">💡 FIX</span>
-    <span style="color:#93c5fd;font-size:0.83rem;">{issue.get('suggested_fix','?')[:130]}</span>
+    <span style="color:#4f8ef7;font-size:0.75rem;font-weight:700;white-space:nowrap;">💡 FIX</span>
+    <span style="color:rgba(79,142,247,0.9);font-size:0.83rem;">{issue.get('suggested_fix','?')[:130]}</span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -3322,7 +3901,7 @@ elif "📘" in section and page == "🚀 Run Agent":
   <div style="font-size:2.8rem;line-height:1;">{sel_agent['icon']}</div>
   <div style="flex:1;min-width:200px;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="color:var(--text);font-size:1.1rem;font-weight:700;font-family:'Syne',sans-serif;">{sel_agent['name']}</span>
+      <span style="color:var(--text);font-size:1.1rem;font-weight:700;font-family:'Outfit',sans-serif;">{sel_agent['name']}</span>
       <span style="background:rgba(255,255,255,0.06);color:var(--text2);border-radius:4px;padding:1px 8px;font-size:0.72rem;font-family:'JetBrains Mono',monospace;">{sel_agent.get('category','')}</span>
     </div>
     <p style="color:var(--text2);font-size:0.87rem;margin:0 0 10px;line-height:1.5;">{sel_agent['description']}</p>
@@ -3908,18 +4487,18 @@ elif page == "live_org":
         st.markdown("""
 <div class="agent-flow">
 <div style="text-align:center;margin-bottom:8px;">
-  <span style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px 20px;display:inline-block;color:#93c5fd;font-weight:700;">🧭 COORDINATOR AGENT</span>
+  <span style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px 20px;display:inline-block;color:rgba(79,142,247,0.9);font-weight:700;">🧭 COORDINATOR AGENT</span>
   <div style="color:var(--text3);font-size:0.78rem;margin-top:4px;">Decomposes goal · Assigns tasks · Sets success criteria</div>
 </div>
 <div style="display:flex;justify-content:center;gap:2px;margin:8px 0;color:var(--blue);">──┬──────────┬──────────────┬──</div>
 <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:8px;">
-  <span style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:8px;padding:6px 14px;color:#c084fc;font-size:0.85rem;">📚 LITERATURE</span>
-  <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 14px;color:#22d3ee;font-size:0.85rem;">📊 DATA ANALYST</span>
-  <span style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:6px 14px;color:#fbbf24;font-size:0.85rem;">🔍 GAP FINDER</span>
+  <span style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:8px;padding:6px 14px;color:#a78bfa;font-size:0.85rem;">📚 LITERATURE</span>
+  <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 14px;color:#00d4ff;font-size:0.85rem;">📊 DATA ANALYST</span>
+  <span style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:6px 14px;color:#ffb340;font-size:0.85rem;">🔍 GAP FINDER</span>
 </div>
 <div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
 <div style="text-align:center;margin-bottom:6px;">
-  <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:6px 16px;display:inline-block;color:#4ade80;font-size:0.85rem;">🧠 SYNTHESIZER</span>
+  <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:6px 16px;display:inline-block;color:#10e87e;font-size:0.85rem;">🧠 SYNTHESIZER</span>
 </div>
 <div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
 <div style="text-align:center;">
@@ -4023,7 +4602,7 @@ elif page == "live_org":
                 st.markdown(f"<div style='background:#111827;border-radius:10px;padding:12px;text-align:center;border:1px solid #1e293b;'>"
                             f"<div style='font-size:1.5rem;'>{icon}</div>"
                             f"<div style='color:#f1f5f9;font-weight:700;font-size:0.82rem;margin:4px 0;'>{label}</div>"
-                            f"<div style='color:#4ade80;font-size:0.78rem;'>{str(conf).upper() if conf else 'DONE'}</div>"
+                            f"<div style='color:#10e87e;font-size:0.78rem;'>{str(conf).upper() if conf else 'DONE'}</div>"
                             f"<div style='color:#64748b;font-size:0.72rem;'>{n_fields} fields</div>"
                             f"</div>", unsafe_allow_html=True)
 
@@ -4101,7 +4680,7 @@ elif page == "live_org":
 elif page == "research_problems":
     st.markdown('<span class="research-badge">SECTION 3 — RESEARCH PLATFORM</span>', unsafe_allow_html=True)
     st.title("🔭 SAAP Research Platform — Organisational AI Agent Systems")
-    st.markdown('<p style="color:var(--text2);margin-top:-8px;">Enterprise-scale research on autonomous multi-agent systems for organisational automation. Interactive components marked <span style="color:#f87171;font-weight:600;">🔴 LIVE</span> use real Groq API calls.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:var(--text2);margin-top:-8px;">Enterprise-scale research on autonomous multi-agent systems for organisational automation. Interactive components marked <span style="color:#ff4757;font-weight:600;">🔴 LIVE</span> use real Groq API calls.</p>', unsafe_allow_html=True)
 
     s3_tabs = st.tabs([
         "📍 Research Position",
@@ -4241,7 +4820,7 @@ this reliably at organisational scale with real data, real integrations, and rea
 <strong style="color:#f1f5f9;">{err['severity']} | {err['error_code']} — {err['type']}</strong><br>
 <em style="color:#94a3b8;">{agent_icons_map.get(src,'🤖')} {src} → {agent_icons_map.get(dst,'🤖')} {dst}</em><br><br>
 <strong>Problem:</strong> {err['problem']}<br>
-<code style="background:#0f172a;padding:4px 8px;border-radius:4px;color:#f87171;">{err['example_failure']}</code><br>
+<code style="background:#0f172a;padding:4px 8px;border-radius:4px;color:#ff4757;">{err['example_failure']}</code><br>
 <strong style="color:#818cf8;">Gap:</strong> {err['research_gap']}
 </div>
 """, unsafe_allow_html=True)
@@ -5768,7 +6347,7 @@ if page == "live_hub":
 
     st.markdown("""<style>
 /* ── Section 5 Overrides (leverages global CSS vars) ──────── */
-.hub-tab-badge { background:rgba(34,197,94,0.12); color:#4ade80; padding:4px 14px; border-radius:99px;
+.hub-tab-badge { background:rgba(34,197,94,0.12); color:#10e87e; padding:4px 14px; border-radius:99px;
                  font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
                  border:1px solid rgba(34,197,94,0.3); }
 .svc-connected { background:rgba(34,197,94,0.07); border:2px solid rgba(34,197,94,0.35); border-radius:14px;
@@ -5776,14 +6355,14 @@ if page == "live_hub":
 .svc-connected:hover { border-color:rgba(34,197,94,0.55); }
 .svc-disconnected { background:var(--surface); border:1px dashed var(--border2); border-radius:14px;
                     padding:18px; margin:10px 0; opacity:0.8; }
-.verified-badge { background:rgba(34,197,94,0.15); color:#4ade80; padding:2px 10px; border-radius:99px;
+.verified-badge { background:rgba(34,197,94,0.15); color:#10e87e; padding:2px 10px; border-radius:99px;
                   font-size:0.74rem; font-weight:700; border:1px solid rgba(34,197,94,0.3); }
 .ai-badge { background:rgba(139,92,246,0.15); color:#a5b4fc; padding:2px 10px; border-radius:99px;
             font-size:0.74rem; border:1px solid rgba(139,92,246,0.3); }
 .run-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; margin:8px 0; }
 .run-log-line { font-family:'JetBrains Mono',monospace; font-size:0.8rem; padding:3px 0; color:var(--text2); }
-.run-log-real { color:#4ade80 !important; font-weight:600; }
-.run-log-error { color:#f87171 !important; }
+.run-log-real { color:#10e87e !important; font-weight:600; }
+.run-log-error { color:#ff4757 !important; }
 .auto-block { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
               padding:20px; margin:10px 0; transition:border-color 0.2s; }
 .auto-block:hover { border-color:var(--border2); }
@@ -5803,10 +6382,10 @@ if page == "live_hub":
         st.markdown("""
 <div class="hub-hero">
   <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:99px;padding:5px 16px;margin-bottom:16px;">
-    <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
+    <span style="width:7px;height:7px;background:#10e87e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
     <span style="color:#86efac;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">LIVE SYSTEM ACTIVE</span>
   </div>
-  <h1 style="color:#4ade80;margin:0 0 10px;font-size:2.6rem;font-weight:800;font-family:'Syne',sans-serif;letter-spacing:-0.03em;">⚡ Live Agent Hub</h1>
+  <h1 style="color:#10e87e;margin:0 0 10px;font-size:2.6rem;font-weight:800;font-family:'Outfit',sans-serif;letter-spacing:-0.03em;">⚡ Live Agent Hub</h1>
   <p style="color:#86efac;margin:0 0 8px;font-size:1rem;font-weight:500;">Real API connections · Live data fetch · Org knowledge database · Automated workflows</p>
   <p style="color:var(--text3);margin:0;font-size:0.87rem;">Sign in with your organisation account to access the Hub</p>
 </div>
@@ -5941,7 +6520,7 @@ Sign in with Google
 </div></a></div>""", unsafe_allow_html=True)
             else:
                 st.markdown("""<div style="background:#0a1929;border:1px solid #1e3a5f;border-radius:8px;padding:12px;text-align:center;margin:8px 0;">
-<span style="color:#60a5fa;font-size:0.82rem;">✨ Google OAuth available</span><br>
+<span style="color:#4f8ef7;font-size:0.82rem;">✨ Google OAuth available</span><br>
 <span style="color:#64748b;font-size:0.78rem;">Add GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET to .streamlit/secrets.toml to enable</span>
 </div>""", unsafe_allow_html=True)
 
@@ -5961,7 +6540,7 @@ Sign in with Google
             ]
             for icon, title, desc in features:
                 st.markdown(f"""<div style="background:#0a140a;border:1px solid #1e3a1e;border-radius:10px;padding:14px;margin:8px 0;">
-<strong style="color:#4ade80;">{icon} {title}</strong><br>
+<strong style="color:#10e87e;">{icon} {title}</strong><br>
 <span style="color:#94a3b8;font-size:0.88rem;">{desc}</span>
 </div>""", unsafe_allow_html=True)
 
@@ -5977,7 +6556,7 @@ Sign in with Google
     with col_title:
         st.markdown('<span class="hub-tab-badge">⚡ SECTION 5 — LIVE AGENT HUB</span>', unsafe_allow_html=True)
         st.markdown("""<div class="hub-hero" style="padding:20px;">
-<h2 style="color:#4ade80;margin:0;">⚡ Live Agent Hub</h2>
+<h2 style="color:#10e87e;margin:0;">⚡ Live Agent Hub</h2>
 <p style="color:#86efac;margin:6px 0 0 0;font-size:0.95rem;">Real APIs · Live Data · Org Knowledge Database · Real Automations</p>
 </div>""", unsafe_allow_html=True)
     with col_user:
@@ -6044,7 +6623,7 @@ Enter your real API key → click **Test & Save** → connection is verified aga
             _is_google = "Google" in _cat
             _cat_color = "#4285F4" if _is_google else "#6366f1"
             _cat_icon  = "✨" if _cat == "Google AI" else ("🏢" if _cat == "Google Workspace" else "🔧")
-            _google_badge = '<span style="background:#1e3a5f;color:#60a5fa;border-radius:4px;padding:1px 8px;font-size:0.72rem;margin-left:8px;">GOOGLE AI</span>' if _is_google else ""
+            _google_badge = '<span style="background:#1e3a5f;color:#4f8ef7;border-radius:4px;padding:1px 8px;font-size:0.72rem;margin-left:8px;">GOOGLE AI</span>' if _is_google else ""
             _bg = "#0a1929" if _is_google else "#0f0a1f"
             _fg = "#60a5fa" if _is_google else "#a78bfa"
             st.markdown(f'''<div style="background:{_bg};border-left:3px solid {_cat_color};border-radius:6px;padding:8px 14px;margin:14px 0 8px 0;"><strong style="color:{_fg};">{_cat_icon} {_cat}</strong>{_google_badge}</div>''', unsafe_allow_html=True)
@@ -6061,16 +6640,16 @@ Enter your real API key → click **Test & Save** → connection is verified aga
 
                     if is_connected:
                         st.markdown(f"""<div class="svc-connected">
-<strong style="color:#4ade80;">✅ Connected</strong><br>
+<strong style="color:#10e87e;">✅ Connected</strong><br>
 <span style="color:#86efac;">{verified.get('display','Verified')}</span><br>
 <span style="color:#6b7280;font-size:0.82rem;">Added: {existing.get('added_at','?')[:16]}</span>
 </div>""", unsafe_allow_html=True)
 
                 # How to get key
                 st.markdown(f"""<div class="api-step">
-<strong style="color:#4ade80;">📋 How to get your {svc['name']} key:</strong><br>
+<strong style="color:#10e87e;">📋 How to get your {svc['name']} key:</strong><br>
 <span style="color:#d1d5db;">{svc['guide']}</span><br>
-<a href="{svc['guide_url']}" target="_blank" style="color:#60a5fa;">→ Open {svc['name']} API settings ↗</a>
+<a href="{svc['guide_url']}" target="_blank" style="color:#4f8ef7;">→ Open {svc['name']} API settings ↗</a>
 </div>""", unsafe_allow_html=True)
 
                 with st.form(f"svc_form_{svc_id}_{member['id']}"):
@@ -6191,7 +6770,7 @@ making automation outputs specific to YOUR organisation instead of generic AI re
 
             for entry in filtered:
                 tags = json.loads(entry.get("tags", "[]"))
-                tag_html = "".join([f'<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">{t}</span>' for t in tags])
+                tag_html = "".join([f'<span style="background:#1e3a5f;color:rgba(79,142,247,0.9);border-radius:4px;padding:1px 6px;font-size:0.75rem;margin-right:4px;">{t}</span>' for t in tags])
                 col_e, col_del = st.columns([6, 1])
                 with col_e:
                     st.markdown(f"""<div class="kb-entry">
@@ -6605,7 +7184,7 @@ making automation outputs specific to YOUR organisation instead of generic AI re
 
             for m in filtered_members:
                 perms_list = json.loads(m.get("permissions","[]"))
-                perm_badges = "".join([f'<span style="background:#1e3a5f;color:#93c5fd;border-radius:4px;padding:1px 7px;font-size:0.75rem;margin:2px;">{p}</span>' for p in perms_list])
+                perm_badges = "".join([f'<span style="background:#1e3a5f;color:rgba(79,142,247,0.9);border-radius:4px;padding:1px 7px;font-size:0.75rem;margin:2px;">{p}</span>' for p in perms_list])
                 is_me = m["id"] == member["id"]
                 run_count = run_counts_by_member.get(m.get("name",""),0)
                 with st.container():
@@ -6614,9 +7193,9 @@ making automation outputs specific to YOUR organisation instead of generic AI re
                         st.markdown(f"""<div class="member-chip">
 <div class="member-avatar" style="background:{m.get('avatar_color','#3b82f6')};width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;color:#fff;font-size:0.9rem;vertical-align:middle;">{m['name'][0].upper()}</div>
 <strong style="color:#f1f5f9;margin-left:8px;">{m['name']}</strong>
-{'<span style="color:#fbbf24;font-size:0.78rem;"> (you)</span>' if is_me else ""}
+{'<span style="color:#ffb340;font-size:0.78rem;"> (you)</span>' if is_me else ""}
 <span style="color:#6b7280;font-size:0.82rem;"> · {m.get('email','')} · {m.get('role','')} · {m.get('department','')}</span>
-<span style="color:#4ade80;font-size:0.78rem;margin-left:10px;">{run_count} automation run(s)</span><br>
+<span style="color:#10e87e;font-size:0.78rem;margin-left:10px;">{run_count} automation run(s)</span><br>
 <div style="margin-top:6px;">{perm_badges}</div>
 </div>""", unsafe_allow_html=True)
                     with col_del:
@@ -7161,7 +7740,7 @@ def run_routed_agent(api_key: str, agent_id: str, task: str) -> dict:
 if page == "org_chat":
     import streamlit.components.v1 as components
 
-    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">SECTION 8 — ORG CHAT + AI AGENT</span>', unsafe_allow_html=True)
+    st.markdown('<span style="background:rgba(6,182,212,.12);color:#00d4ff;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">SECTION 8 — ORG CHAT + AI AGENT</span>', unsafe_allow_html=True)
     st.title("Organisation Chat Hub")
 
     # Real Login wall
@@ -7219,7 +7798,7 @@ if page == "org_chat":
         st.markdown(f"""<div style="background:{bgc};border:1px solid {me['avatar_color']}40;border-radius:8px;padding:8px 10px;">
         <div style="font-size:.82rem;font-weight:700;color:#f0f4ff;">👤 {me['display_name']}</div>
         <div style="font-size:.7rem;color:#94a8c8;">{me.get('role','')} · {me.get('department','')}</div>
-        <div style="font-size:.65rem;color:#4ade80;margin-top:2px;">● Online now</div>
+        <div style="font-size:.65rem;color:#10e87e;margin-top:2px;">● Online now</div>
         </div>""", unsafe_allow_html=True)
         if st.button("Sign Out", key="chat_logout"):
             st.session_state.chat_user = None
@@ -7251,7 +7830,7 @@ if page == "org_chat":
         with ai_mode_col:
             ai_mode = st.toggle("🤖 AI Read Mode", value=False, help="When ON, the Analyser Agent reads your message, identifies what needs to be done, and routes to the best specialist agent automatically.")
             if ai_mode:
-                st.markdown('<div style="font-size:.7rem;color:#22d3ee;padding:2px 0;">Analyser → Route → Execute</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:.7rem;color:#00d4ff;padding:2px 0;">Analyser → Route → Execute</div>', unsafe_allow_html=True)
 
         with input_col:
             new_msg = st.text_area("Message", placeholder="Type your message... (In AI mode, describe a task and it will be auto-routed to the right agent)", height=80, label_visibility="collapsed", key="chat_msg_input")
@@ -7345,7 +7924,7 @@ if page == "org_chat":
 
             if is_system:
                 st.markdown(f"""<div style="background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.15);border-radius:8px;padding:10px 14px;margin:6px 0;font-size:.8rem;color:#94a8c8;">
-                <span style="color:#22d3ee;font-weight:700;font-size:.72rem;">{msg['sender_name'].upper()} · {msg['sender_role']}</span><br/>
+                <span style="color:#00d4ff;font-weight:700;font-size:.72rem;">{msg['sender_name'].upper()} · {msg['sender_role']}</span><br/>
                 {msg['content'].replace(chr(10),'<br/>')}
                 <span style="float:right;font-size:.65rem;color:var(--text3);">{msg['created_at'][11:16]}</span>
                 </div>""", unsafe_allow_html=True)
@@ -7406,7 +7985,7 @@ if page == "org_chat":
                   </div>
                   <div style="font-size:.7rem;color:#94a8c8;">{job.get('detected_intent','')[:60]}</div>
                   <div style="font-size:.65rem;color:var(--text3);margin-top:3px;">By {job['triggered_by']} · {job['created_at'][11:16]} · {job['tokens_used']} tokens</div>
-                  <div style="font-size:.65rem;color:#60a5fa;margin-top:2px;">Confidence: {job.get('confidence',0)}%</div>
+                  <div style="font-size:.65rem;color:#4f8ef7;margin-top:2px;">Confidence: {job.get('confidence',0)}%</div>
                 </div>""", unsafe_allow_html=True)
 
         with tab_rules:
@@ -7717,7 +8296,7 @@ if page == "admin_db":
 # ════════════════════════════════════════════════════════════════════════════════
 
 if page == "activity_feed":
-    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">🌐 GLOBAL ACTIVITY FEED</span>', unsafe_allow_html=True)
+    st.markdown('<span style="background:rgba(6,182,212,.12);color:#00d4ff;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">🌐 GLOBAL ACTIVITY FEED</span>', unsafe_allow_html=True)
     st.title("🌐 Global Activity Feed")
     st.caption("Cross-section event bus — all actions from all sections in one place")
 
