@@ -1161,10 +1161,20 @@ def run_agent_task(api_key: str, agent_name: str, payload: dict, extra_context: 
     try:
         result = call_groq(api_key, agent_name, payload, extra_context)
         save_task(task_id, agent_name, payload, "COMPLETED", result)
+        try:
+            feed_post("section1", "agent_completed", agent_name,
+                      f"Agent '{agent_name}' completed task", {"task_id": task_id}, icon="✅")
+        except:
+            pass
         return {"status": "COMPLETED", "task_id": task_id, "result": result}
     except Exception as e:
         err = {"error": str(e), "agent": agent_name}
         save_task(task_id, agent_name, payload, "FAILED", err)
+        try:
+            feed_post("section1", "agent_failed", agent_name,
+                      f"Agent '{agent_name}' failed: {str(e)[:80]}", {"task_id": task_id}, icon="❌")
+        except:
+            pass
         return {"status": "FAILED", "task_id": task_id, "result": err}
 
 DEFAULT_PAYLOADS = {
@@ -2034,6 +2044,8 @@ with st.sidebar:
         "⚙️ Section 6 — n8n Real Simulation",
         "Ω Section 7 — Omega Agent",
         "💬 Section 8 — Org Chat + AI Agent",
+        "🛠 Section 9 — Admin & Database",
+        "🌐 Activity Feed",
     ], label_visibility="collapsed")
 
     if "📘" in section:
@@ -2063,6 +2075,11 @@ with st.sidebar:
     elif "💬" in section:
         page = "org_chat"
         st.sidebar.caption("🆕 Org-Wide Chat + AI")
+    elif "🛠" in section:
+        page = "admin_db"
+        st.sidebar.caption("Admin & DB Explorer")
+    elif "🌐" in section:
+        page = "activity_feed"
     else:
         page = "n8n_simulation"
 
@@ -2094,6 +2111,17 @@ with st.sidebar:
         st.markdown(f'<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Active Schedules ({len(scheds)})</div>', unsafe_allow_html=True)
         for s in scheds[:2]:
             st.markdown(f'<div style="font-size:0.78rem;color:var(--text2);padding:3px 0;">⏱ <strong>{s["automation_name"]}</strong>: next in {s["interval_min"]}m</div>', unsafe_allow_html=True)
+
+    # ── Global Feed mini-widget ──
+    try:
+        recent_feed = feed_get(limit=3)
+        if recent_feed:
+            st.divider()
+            st.markdown('<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">🌐 Activity Feed</div>', unsafe_allow_html=True)
+            for ev in recent_feed:
+                st.markdown(f'<div style="font-size:0.72rem;color:var(--text2);padding:2px 0;">{ev["icon"]} {ev["summary"][:45]}...</div>', unsafe_allow_html=True)
+    except:
+        pass
 
     if page == "org_mode":
         st.divider()
@@ -3863,6 +3891,13 @@ elif page == "live_org":
                 run_id = str(uuid.uuid4())
                 save_org_run(run_id, research_goal, final_data.get("agents_used", []),
                     final_data.get("final_report", ""), final_data.get("token_usage", {}), "COMPLETED")
+                try:
+                    feed_post("section2", "research_run_completed", "Research Agent System",
+                              f"Research completed: '{research_goal[:70]}'",
+                              {"run_id": run_id, "agents": final_data.get("agents_used",[]),
+                               "tokens": final_data.get("token_usage",{}).get("total",0)}, icon="🔬")
+                except:
+                    pass
             except Exception as e:
                 error_msg = str(e)
 
@@ -6873,6 +6908,12 @@ def chat_save_ai_job(job_id, triggered_by_id, triggered_by, excerpt, intent, con
         c.execute("""INSERT INTO chat_daily_stats (stat_date,ai_jobs_run,tokens_consumed)
             VALUES (date('now'),1,?) ON CONFLICT(stat_date) DO UPDATE SET
             ai_jobs_run=ai_jobs_run+1, tokens_consumed=tokens_consumed+?""", (tokens, tokens))
+    try:
+        feed_post("chat", "ai_job_completed", triggered_by,
+                  f"Chat AI routed '{intent[:60]}' → {routed_agent} ({confidence}% confidence)",
+                  {"job_id": job_id, "routed_agent": routed_agent, "tokens": tokens}, icon="🤖")
+    except:
+        pass
 
 # ─── AI Analyser Agent ──────────────────────────────────────────────────────────
 
@@ -7194,3 +7235,231 @@ if page == "org_chat":
                 st.dataframe(pd.DataFrame(df_stats, columns=["Date","Messages","Members","AI Jobs","Tokens","Top Sender","Top Agent"]), use_container_width=True)
             else:
                 st.info("No daily stats yet — send some messages first.")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  SECTION 9 — ADMIN & DATABASE + GLOBAL ACTIVITY FEED + CROSS-SECTION BUS
+# ════════════════════════════════════════════════════════════════════════════════
+
+def init_section9_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.executescript("""
+    CREATE TABLE IF NOT EXISTS global_activity_feed (
+        id          TEXT PRIMARY KEY,
+        source      TEXT NOT NULL,
+        event_type  TEXT NOT NULL,
+        actor       TEXT DEFAULT '',
+        summary     TEXT NOT NULL,
+        detail      TEXT DEFAULT '{}',
+        icon        TEXT DEFAULT '📌',
+        created_at  TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_feed_created ON global_activity_feed(created_at);
+    CREATE INDEX IF NOT EXISTS idx_feed_source  ON global_activity_feed(source);
+    """)
+    conn.commit()
+    conn.close()
+
+init_section9_db()
+
+def feed_post(source: str, event_type: str, actor: str, summary: str, detail: dict = None, icon: str = "📌"):
+    with db() as c:
+        c.execute("INSERT INTO global_activity_feed (id,source,event_type,actor,summary,detail,icon) VALUES (?,?,?,?,?,?,?)",
+                  (str(uuid.uuid4()), source, event_type, actor, summary, json.dumps(detail or {}), icon))
+
+def feed_get(limit: int = 50, source_filter: str = ""):
+    with db() as c:
+        if source_filter:
+            rows = c.execute("SELECT * FROM global_activity_feed WHERE source=? ORDER BY created_at DESC LIMIT ?", (source_filter, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM global_activity_feed ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+def get_all_table_stats():
+    tables = [
+        "agents","tasks","pipelines","pipeline_runs","knowledge_base",
+        "org_research_runs","org_members","org_workflows","org_workflow_runs",
+        "org_issues","org_integrations","agent_memory","schedules","token_budget_log",
+        "hub_members","hub_api_connections","hub_org_knowledge","hub_automations",
+        "hub_runs","hub_google_oauth_tokens","hub_agent_metrics","hub_audit_log",
+        "hub_integration_events","hub_agent_outputs","hub_schedules",
+        "chat_messages","chat_ai_jobs","chat_profiles","chat_channels",
+        "chat_pins","chat_daily_stats","chat_routing_rules",
+        "global_activity_feed",
+    ]
+    stats = []
+    with db() as c:
+        for t in tables:
+            try:
+                cnt = c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                stats.append({"table": t, "rows": cnt})
+            except:
+                pass
+    return stats
+
+
+# ─── Section 9 Sidebar entry already handled via page routing below ─────────────
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  PAGE ROUTER PATCH — Section 9
+# ════════════════════════════════════════════════════════════════════════════════
+
+if page == "admin_db":
+    st.markdown('<span style="background:rgba(249,115,22,.12);color:#fb923c;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(249,115,22,.3);text-transform:uppercase;">🛠 SECTION 9 — ADMIN & DATABASE</span>', unsafe_allow_html=True)
+    st.title("🛠 Admin Panel & Database Explorer")
+
+    adm_tab1, adm_tab2, adm_tab3, adm_tab4, adm_tab5 = st.tabs([
+        "🗄️ DB Health", "🗺️ Routing Rules", "👥 Members", "📊 Token Budget", "📥 Export"
+    ])
+
+    with adm_tab1:
+        st.subheader("Database Health Dashboard")
+        table_stats = get_all_table_stats()
+        total_rows = sum(t["rows"] for t in table_stats)
+        st.metric("Total Rows Across All Tables", f"{total_rows:,}")
+        cols = st.columns(4)
+        for i, t in enumerate(table_stats):
+            cols[i % 4].metric(t["table"], t["rows"])
+
+    with adm_tab2:
+        st.subheader("Chat Routing Rules Manager")
+        with db() as c:
+            rules = [dict(r) for r in c.execute("SELECT * FROM chat_routing_rules ORDER BY priority DESC").fetchall()]
+        for rule in rules:
+            with st.expander(f"{rule['agent_label']} (priority {rule['priority']})"):
+                try:
+                    kws = json.loads(rule["keywords"])
+                except:
+                    kws = []
+                new_kws = st.text_input("Keywords (comma-sep)", value=", ".join(kws), key=f"kw_{rule['id']}")
+                new_pri = st.slider("Priority", 1, 10, rule["priority"], key=f"pri_{rule['id']}")
+                active = st.checkbox("Active", value=bool(rule["active"]), key=f"act_{rule['id']}")
+                if st.button("💾 Save", key=f"save_{rule['id']}"):
+                    kw_list = [k.strip() for k in new_kws.split(",") if k.strip()]
+                    with db() as c:
+                        c.execute("UPDATE chat_routing_rules SET keywords=?,priority=?,active=? WHERE id=?",
+                                  (json.dumps(kw_list), new_pri, int(active), rule["id"]))
+                    st.success("Saved!")
+                    feed_post("admin","routing_rule_updated","admin",f"Updated routing rule for {rule['agent_label']}",icon="🗺️")
+                    st.rerun()
+
+        st.divider()
+        st.markdown("**Add New Rule**")
+        nr_intent = st.text_input("Intent Key")
+        nr_agent = st.selectbox("Target Agent", list(DEFAULT_PAYLOADS.keys()))
+        nr_kws = st.text_input("Keywords (comma-sep)")
+        nr_pri = st.slider("Priority", 1, 10, 5, key="new_rule_pri")
+        if st.button("➕ Add Rule", type="primary"):
+            if nr_intent and nr_kws:
+                rid = str(uuid.uuid4())[:8]
+                kw_list = [k.strip() for k in nr_kws.split(",") if k.strip()]
+                with db() as c:
+                    c.execute("INSERT INTO chat_routing_rules (id,intent_key,keywords,agent_id,agent_label,priority) VALUES (?,?,?,?,?,?)",
+                              (rid, nr_intent, json.dumps(kw_list), nr_agent, nr_agent, nr_pri))
+                st.success(f"Added rule: {nr_intent} → {nr_agent}")
+                feed_post("admin","routing_rule_added","admin",f"Added routing rule: {nr_intent}→{nr_agent}",icon="➕")
+                st.rerun()
+
+    with adm_tab3:
+        st.subheader("Organisation Member Management")
+        with db() as c:
+            members = [dict(r) for r in c.execute("SELECT * FROM chat_profiles ORDER BY joined_at").fetchall()]
+        import pandas as pd
+        if members:
+            st.dataframe(pd.DataFrame(members), use_container_width=True)
+        st.divider()
+        st.markdown("**Add New Member**")
+        nm_col1, nm_col2 = st.columns(2)
+        nm_name = nm_col1.text_input("Full Name")
+        nm_role = nm_col2.text_input("Role")
+        nm_dept = nm_col1.text_input("Department")
+        nm_color = nm_col2.color_picker("Avatar Color", "#3b82f6")
+        if st.button("➕ Add Member", type="primary"):
+            if nm_name:
+                mid = "chat-"+str(uuid.uuid4())[:6]
+                with db() as c:
+                    c.execute("INSERT OR IGNORE INTO chat_profiles (member_id,display_name,role,department,avatar_color) VALUES (?,?,?,?,?)",
+                              (mid, nm_name, nm_role, nm_dept, nm_color))
+                st.success(f"Added {nm_name}!")
+                feed_post("admin","member_added","admin",f"New member added: {nm_name} ({nm_dept})",icon="👤")
+                st.rerun()
+
+    with adm_tab4:
+        st.subheader("Token Budget & Cost Analytics")
+        with db() as c:
+            budget_rows = [dict(r) for r in c.execute("SELECT * FROM token_budget_log ORDER BY log_date DESC LIMIT 30").fetchall()]
+            chat_stats = [dict(r) for r in c.execute("SELECT * FROM chat_daily_stats ORDER BY stat_date DESC LIMIT 30").fetchall()]
+        if budget_rows:
+            df_b = pd.DataFrame(budget_rows)
+            st.line_chart(df_b.set_index("log_date")["total_tokens"])
+            total_cost = sum(r["est_cost"] for r in budget_rows)
+            total_toks = sum(r["total_tokens"] for r in budget_rows)
+            c1, c2 = st.columns(2)
+            c1.metric("Total Tokens (30d)", f"{total_toks:,}")
+            c2.metric("Est. Cost (30d)", f"${total_cost:.4f}")
+            st.dataframe(df_b, use_container_width=True)
+        else:
+            st.info("No token budget data yet — run some agents first.")
+        if chat_stats:
+            st.subheader("Chat AI Token Consumption")
+            df_cs = pd.DataFrame(chat_stats)
+            st.dataframe(df_cs, use_container_width=True)
+
+    with adm_tab5:
+        st.subheader("Export Database Tables")
+        import pandas as pd, io
+        export_table = st.selectbox("Select Table", [
+            "chat_messages","chat_ai_jobs","chat_profiles","global_activity_feed",
+            "tasks","hub_runs","org_workflow_runs","token_budget_log","chat_daily_stats"
+        ])
+        if st.button("📥 Generate CSV"):
+            with db() as c:
+                rows = c.execute(f"SELECT * FROM {export_table}").fetchall()
+                col_names = [d[0] for d in c.execute(f"SELECT * FROM {export_table} LIMIT 1").description or []]
+            if rows:
+                df_exp = pd.DataFrame(rows, columns=col_names)
+                csv_buf = io.StringIO()
+                df_exp.to_csv(csv_buf, index=False)
+                st.download_button(
+                    label=f"⬇️ Download {export_table}.csv",
+                    data=csv_buf.getvalue(),
+                    file_name=f"{export_table}_{datetime.date.today()}.csv",
+                    mime="text/csv"
+                )
+                st.success(f"{len(rows)} rows ready for download.")
+            else:
+                st.warning("Table is empty.")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  GLOBAL ACTIVITY FEED PAGE
+# ════════════════════════════════════════════════════════════════════════════════
+
+if page == "activity_feed":
+    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">🌐 GLOBAL ACTIVITY FEED</span>', unsafe_allow_html=True)
+    st.title("🌐 Global Activity Feed")
+    st.caption("Cross-section event bus — all actions from all sections in one place")
+
+    source_filter = st.selectbox("Filter by Source", ["All","admin","chat","hub","org","section1","section2","section3","section4","section6","section7"])
+    feed_limit = st.slider("Show last N events", 10, 200, 50)
+
+    events = feed_get(limit=feed_limit, source_filter="" if source_filter == "All" else source_filter)
+
+    SOURCE_COLORS = {
+        "admin": "#f97316", "chat": "#06b6d4", "hub": "#22c55e",
+        "org": "#8b5cf6", "section1": "#3b82f6", "section2": "#f59e0b",
+        "section3": "#ec4899", "section4": "#14b8a6", "section6": "#a78bfa", "section7": "#fb923c",
+    }
+
+    if not events:
+        st.info("No activity yet. Use any section to generate events.")
+    for ev in events:
+        color = SOURCE_COLORS.get(ev["source"], "#94a8c8")
+        st.markdown(f"""<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:1.1rem;">{ev['icon']}</span>
+          <div style="flex:1;">
+            <div style="font-size:.8rem;color:#f0f4ff;">{ev['summary']}</div>
+            <div style="font-size:.68rem;color:#94a8c8;margin-top:2px;">{ev['actor']} · {ev['created_at'][11:16]} · <span style="color:{color};font-weight:700;text-transform:uppercase;">{ev['source']}</span> · {ev['event_type']}</div>
+          </div>
+        </div>""", unsafe_allow_html=True)
