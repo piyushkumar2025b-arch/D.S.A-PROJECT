@@ -40,16 +40,16 @@ import re
 import threading
 import hashlib
 from collections import Counter
-from typing import Optional
-import datetime
+from functools import lru_cache
+from typing import Optional, Any
+import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-import datetime
 
 # ─── Enterprise Grade Metadata ────────────────────────────────────────────────
-VERSION = "5.5"
+VERSION = "5.6"  # Improved: perf caching, thread-safe DB, robust JSON parsing, retry logic
 PLATFORM_START_TIME = datetime.datetime.now()
-DAILY_TOKEN_BUDGET = 1_000_000 
+DAILY_TOKEN_BUDGET = 1_000_000
 AVAILABLE_MODELS = [
     "llama-3.3-70b-versatile",
     "mixtral-8x7b-32768",
@@ -575,7 +575,6 @@ def init_db():
         integrations
     )
 
-    # New Features Tables
     c.executescript("""
     CREATE TABLE IF NOT EXISTS agent_memory (
         id TEXT PRIMARY KEY, agent_name TEXT, payload TEXT, result TEXT, created_at TEXT DEFAULT (datetime('now'))
@@ -588,6 +587,15 @@ def init_db():
     CREATE TABLE IF NOT EXISTS token_budget_log (
         log_date TEXT PRIMARY KEY, total_tokens INTEGER DEFAULT 0, est_cost REAL DEFAULT 0.0
     );
+    -- Performance indexes
+    CREATE INDEX IF NOT EXISTS idx_tasks_agent    ON tasks(agent_name);
+    CREATE INDEX IF NOT EXISTS idx_tasks_status   ON tasks(status);
+    CREATE INDEX IF NOT EXISTS idx_tasks_created  ON tasks(created_at);
+    CREATE INDEX IF NOT EXISTS idx_memory_agent   ON agent_memory(agent_name);
+    CREATE INDEX IF NOT EXISTS idx_memory_created ON agent_memory(created_at);
+    CREATE INDEX IF NOT EXISTS idx_org_issues_run ON org_issues(run_id);
+    CREATE INDEX IF NOT EXISTS idx_org_issues_status ON org_issues(status);
+    CREATE INDEX IF NOT EXISTS idx_wf_runs_created ON org_workflow_runs(created_at);
     """)
 
     conn.commit()
@@ -596,12 +604,27 @@ def init_db():
 init_db()
 
 # ─── DB helpers ────────────────────────────────────────────────────────────────
-def db():
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
-    return c
+_DB_LOCK = threading.Lock()
 
+def db():
+    """Return a thread-safe SQLite connection with WAL journal mode and optimised settings."""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-8000")   # 8 MB page cache
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+def db_execute(query: str, params: tuple = ()) -> list:
+    """Convenience wrapper: execute a SELECT and return list of dicts."""
+    with db() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
+
+@st.cache_data(ttl=300)
 def get_agents():
+    """Cached: re-fetches every 5 min."""
     with db() as c:
         rows = c.execute("SELECT * FROM agents ORDER BY category, name").fetchall()
     return [dict(r) for r in rows]
@@ -637,7 +660,13 @@ def get_agent_memory(agent_name, limit=5):
         c = conn.cursor()
         rows = c.execute("SELECT result, created_at FROM agent_memory WHERE agent_name = ? ORDER BY created_at DESC LIMIT ?",
                          (agent_name, limit)).fetchall()
-        return [{"result": json.loads(r[0]), "time": r[1]} for r in rows]
+        results = []
+        for r in rows:
+            try:
+                results.append({"result": json.loads(r[0]), "time": r[1]})
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return results
 
 # Scheduler Core
 scheduler = BackgroundScheduler()
@@ -750,11 +779,13 @@ def get_org_runs(limit=20):
         rows = c.execute("SELECT * FROM org_research_runs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
     return [dict(r) for r in rows]
 
+@st.cache_data(ttl=120)
 def get_org_members():
     with db() as c:
         rows = c.execute("SELECT * FROM org_members ORDER BY name").fetchall()
     return [dict(r) for r in rows]
 
+@st.cache_data(ttl=60)
 def get_integrations():
     with db() as c:
         rows = c.execute("SELECT * FROM org_integrations ORDER BY name").fetchall()
@@ -769,6 +800,8 @@ def update_integration(name, connected, key_hash=None):
         else:
             c.execute("UPDATE org_integrations SET connected=?, last_tested=? WHERE name=?",
                 (connected, now, name))
+    # Clear cache after mutation so next call gets fresh data
+    get_integrations.clear()
 
 def save_org_workflow_run(run_id, workflow_id, workflow_name, goal, status, master_output,
                            sub_agent_results, issues_found, synthesis_report, token_usage, started_by):
@@ -1070,11 +1103,47 @@ Return ONLY valid JSON:
 }
 
 # ─── AI / Groq helpers ─────────────────────────────────────────────────────────
-def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str = "", system_override: str = None, model: str = None, stream_placeholder = None) -> dict:
+def _parse_json_robust(raw: str) -> dict:
+    """
+    Best-effort JSON extraction from LLM output.
+    Handles: markdown fences, leading/trailing text, partial objects.
+    """
+    text = raw.strip()
+
+    # Strip markdown code fences (```json ... ``` or ``` ... ```)
+    if text.startswith("```"):
+        lines = text.splitlines()
+        # Remove first line (```json or ```) and last if it's ```
+        start = 1
+        end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+        text = "\n".join(lines[start:end]).strip()
+
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find outermost JSON object or array
+    for pattern in (r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', r'\{.*\}', r'\[.*\]'):
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                continue
+
+    # Last resort: return wrapped output
+    return {"output": raw, "parse_error": "JSON extraction failed"}
+
+
+def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str = "",
+              system_override: str = None, model: str = None,
+              stream_placeholder=None, max_retries: int = 2) -> dict:
     from groq import Groq
     client = Groq(api_key=api_key)
     target_model = model or "llama-3.3-70b-versatile"
-    
+
     # ── AGENT MEMORY (Last 5 outputs) ──
     memories = get_agent_memory(agent_name, limit=5)
     mem_context = ""
@@ -1084,7 +1153,8 @@ def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str =
             mem_context += f"- Result from {m['time']}: {json.dumps(m['result'])[:300]}...\n"
 
     system = system_override or UPGRADED_PROMPTS.get(agent_name) or AGENT_PROMPTS.get(agent_name, "You are a helpful AI agent. Return only valid JSON.")
-    if mem_context: system += mem_context
+    if mem_context:
+        system += mem_context
 
     user_parts = ["Execute this agent task. Return ONLY valid JSON results."]
     user_parts.append(f"\nAgent: {agent_name}")
@@ -1092,7 +1162,10 @@ def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str =
     if extra_context:
         user_parts.append(f"\nContext from previous step:\n{extra_context}")
 
-    # Streaming Handling
+    raw = ""
+    tokens_in, tokens_out = 0, 0
+
+    # Streaming path
     if stream_placeholder:
         stream_placeholder.info(f"🛰️ {agent_name.upper()} is thinking...")
         full_resp = ""
@@ -1107,53 +1180,69 @@ def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str =
                 full_resp += content
                 stream_placeholder.markdown(f"**{agent_name.upper()} LOG:**\n{full_resp}")
         raw = full_resp.strip()
-        tokens_in, tokens_out = 1000, len(raw.split()) # Approximation for stream
+        tokens_in, tokens_out = 1000, len(raw.split())  # Approximation for stream
     else:
-        resp = client.chat.completions.create(
-            model=target_model, max_tokens=2048, temperature=0.4,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": "\n".join(user_parts)}]
-        )
-        raw = resp.choices[0].message.content.strip()
-        tokens_in, tokens_out = resp.usage.prompt_tokens, resp.usage.completion_tokens
+        # Non-streaming path with retry
+        last_exc = None
+        for attempt in range(max_retries + 1):
+            try:
+                resp = client.chat.completions.create(
+                    model=target_model, max_tokens=2048, temperature=0.4,
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": "\n".join(user_parts)}]
+                )
+                raw = resp.choices[0].message.content.strip()
+                tokens_in = resp.usage.prompt_tokens
+                tokens_out = resp.usage.completion_tokens
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    time.sleep(1.5 * (attempt + 1))  # Back-off: 1.5s, 3s
+        if last_exc:
+            raise last_exc
 
-    # Sanitise JSON
-    if raw.startswith("```"):
-        lines = raw.split("\n"); raw = "\n".join(lines[1:])
-        if raw.endswith("```"): raw = raw[:-3].strip()
-    try:
-        result = json.loads(raw)
-    except:
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        result = json.loads(match.group()) if match else {"output": raw, "error": "JSON parse failed"}
+    result = _parse_json_robust(raw)
 
     # Track budget and memory
-    track_tokens_budget(tokens_in + tokens_out, round((tokens_in + tokens_out) / 1_000_000 * 0.59, 5))
+    track_tokens_budget(tokens_in + tokens_out,
+                        round((tokens_in + tokens_out) / 1_000_000 * 0.59, 5))
     save_agent_memory(agent_name, payload, result)
 
     result["_meta"] = {
-        "agent": agent_name, "model": target_model, "tokens": tokens_in + tokens_out,
+        "agent": agent_name, "model": target_model,
+        "tokens": tokens_in + tokens_out,
         "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
     }
     return result
 
-def call_groq_raw(api_key: str, system: str, user_msg: str, max_tokens: int = 2000) -> tuple:
-    """Returns (text, tokens_in, tokens_out)"""
+def call_groq_raw(api_key: str, system: str, user_msg: str,
+                  max_tokens: int = 2000, max_retries: int = 2) -> tuple:
+    """Returns (text, tokens_in, tokens_out). Retries on transient errors."""
     from groq import Groq
     client = Groq(api_key=api_key)
-    resp = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        max_tokens=max_tokens,
-        temperature=0.5,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user",   "content": user_msg},
-        ]
-    )
-    return (
-        resp.choices[0].message.content.strip(),
-        resp.usage.prompt_tokens,
-        resp.usage.completion_tokens,
-    )
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            resp = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                max_tokens=max_tokens,
+                temperature=0.5,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": user_msg},
+                ]
+            )
+            return (
+                resp.choices[0].message.content.strip(),
+                resp.usage.prompt_tokens,
+                resp.usage.completion_tokens,
+            )
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                time.sleep(1.5 * (attempt + 1))
+    raise last_exc
 
 def run_agent_task(api_key: str, agent_name: str, payload: dict, extra_context: str = "") -> dict:
     task_id = str(uuid.uuid4())
@@ -1164,7 +1253,7 @@ def run_agent_task(api_key: str, agent_name: str, payload: dict, extra_context: 
         try:
             feed_post("section1", "agent_completed", agent_name,
                       f"Agent '{agent_name}' completed task", {"task_id": task_id}, icon="✅")
-        except:
+        except Exception:
             pass
         return {"status": "COMPLETED", "task_id": task_id, "result": result}
     except Exception as e:
@@ -1173,7 +1262,7 @@ def run_agent_task(api_key: str, agent_name: str, payload: dict, extra_context: 
         try:
             feed_post("section1", "agent_failed", agent_name,
                       f"Agent '{agent_name}' failed: {str(e)[:80]}", {"task_id": task_id}, icon="❌")
-        except:
+        except Exception:
             pass
         return {"status": "FAILED", "task_id": task_id, "result": err}
 
@@ -1314,11 +1403,10 @@ def run_org_agent_system(api_key: str, research_goal: str, progress_callback=Non
     total_tokens_in += ti; total_tokens_out += to
 
     try:
-        raw = coord_text
-        if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"): raw = raw[:-3].strip()
-        coord_result = json.loads(raw)
-    except:
+        coord_result = _parse_json_robust(coord_text)
+        if "parse_error" in coord_result or "sub_tasks" not in coord_result:
+            raise ValueError("Missing sub_tasks")
+    except (ValueError, KeyError):
         coord_result = {"research_goal": research_goal, "sub_tasks": [
             {"agent_id": "literature", "task": f"Survey literature on {research_goal}"},
             {"agent_id": "data_analyst", "task": f"Analyse empirical evidence for {research_goal}"},
@@ -1656,11 +1744,10 @@ Return ONLY valid JSON:
     total_tokens_in += ti; total_tokens_out += to
 
     try:
-        raw = master_text
-        if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"): raw = raw[:-3].strip()
-        master_plan = json.loads(raw)
-    except:
+        master_plan = _parse_json_robust(master_text)
+        if "parse_error" in master_plan or "agent_tasks" not in master_plan:
+            raise ValueError("Missing agent_tasks")
+    except (ValueError, KeyError):
         master_plan = {
             "org_goal": org_goal,
             "agent_tasks": {a: {"specific_task": f"Analyse {SUB_AGENTS.get(a,{}).get('specialisation','operations')} for: {org_goal}", "priority": "high"} for a in selected_agents}
@@ -1809,11 +1896,10 @@ Return ONLY valid JSON:
         total_tokens_in += ti2; total_tokens_out += to2
 
         try:
-            raw = issue_text
-            if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
-            if raw.endswith("```"): raw = raw[:-3].strip()
-            issue_analysis = json.loads(raw)
-        except:
+            issue_analysis = _parse_json_robust(issue_text)
+            if "parse_error" in issue_analysis:
+                raise ValueError("parse failed")
+        except (ValueError, json.JSONDecodeError):
             issue_analysis = {"total_issues": len(issues_found), "raw": issue_text}
         log("✅ Issue analysis complete")
     else:
@@ -2017,7 +2103,7 @@ with st.sidebar:
     secret_key = ""
     try:
         secret_key = st.secrets.get("GROQ_API_KEY", "")
-    except:
+    except Exception:
         pass
 
     api_key = st.text_input(
@@ -2120,7 +2206,7 @@ with st.sidebar:
             st.markdown('<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">🌐 Activity Feed</div>', unsafe_allow_html=True)
             for ev in recent_feed:
                 st.markdown(f'<div style="font-size:0.72rem;color:var(--text2);padding:2px 0;">{ev["icon"]} {ev["summary"][:45]}...</div>', unsafe_allow_html=True)
-    except:
+    except Exception:
         pass
 
     if page == "org_mode":
@@ -2557,7 +2643,7 @@ if page == "org_mode":
                             st.markdown(f"**{label}**")
                             if isinstance(val[0], dict):
                                 try: st.dataframe(pd.DataFrame(val), use_container_width=True)
-                                except: [st.markdown(f"- {json.dumps(item)}") for item in val]
+                                except (json.JSONDecodeError, TypeError): [st.markdown(f"- {json.dumps(item)}") for item in val]
                             else:
                                 [st.markdown(f"- {item}") for item in val]
                         elif isinstance(val, dict):
@@ -2663,7 +2749,7 @@ if page == "org_mode":
                                 st.markdown(f"**{label}**")
                                 if isinstance(val[0], dict):
                                     try: st.dataframe(pd.DataFrame(val), use_container_width=True)
-                                    except: [st.markdown(f"- {json.dumps(i)}") for i in val[:5]]
+                                    except (json.JSONDecodeError, TypeError): [st.markdown(f"- {json.dumps(i)}") for i in val[:5]]
                                 else:
                                     [st.markdown(f"- {i}") for i in val[:8]]
                             elif isinstance(val, dict) and val:
@@ -3374,7 +3460,8 @@ elif "📘" in section and page == "🔗 Pipeline Builder":
                 p_str = st.text_area("Payload", json.dumps(step["payload"], indent=2), height=90, key=f"pip_payload_{i}")
                 try:
                     st.session_state.pip_steps[i]["payload"] = json.loads(p_str)
-                except: pass
+                except (json.JSONDecodeError, ValueError):
+                    pass  # Keep existing payload if user input is not yet valid JSON
 
                 if i < len(st.session_state.pip_steps) - 1:
                     st.markdown("⬇️ *previous output injected as context*")
@@ -3483,8 +3570,11 @@ elif "📘" in section and page == "🧪 Playground":
             if not api_key:
                 st.error("Add your Groq API key.")
             else:
-                try: payload = json.loads(payload_editor)
-                except: st.error("Invalid JSON"); st.stop()
+                try:
+                    payload = json.loads(payload_editor)
+                except (json.JSONDecodeError, ValueError):
+                    st.error("Invalid JSON in payload editor — please fix it before running.")
+                    st.stop()
                 with st.spinner(f"Running `{active_agent}`…"):
                     outcome = run_agent_task(api_key, active_agent, payload)
                 if outcome["status"] == "COMPLETED":
@@ -3601,7 +3691,8 @@ elif "📘" in section and page == "📊 Analytics":
                 try:
                     r = json.loads(t.get("result") or "{}")
                     total_tokens += r.get("_meta", {}).get("tokens", 0)
-                except: pass
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    pass
             perf_rows.append({
                 "Agent": agent_name,
                 "Total Runs": len(agent_tasks),
@@ -3896,7 +3987,7 @@ elif page == "live_org":
                               f"Research completed: '{research_goal[:70]}'",
                               {"run_id": run_id, "agents": final_data.get("agents_used",[]),
                                "tokens": final_data.get("token_usage",{}).get("total",0)}, icon="🔬")
-                except:
+                except Exception:
                     pass
             except Exception as e:
                 error_msg = str(e)
@@ -3966,7 +4057,7 @@ elif page == "live_org":
                                 st.markdown(f"**{label}**")
                                 if isinstance(val[0], dict):
                                     try: st.dataframe(pd.DataFrame(val), use_container_width=True)
-                                    except: [st.markdown(f"- {json.dumps(item)}") for item in val]
+                                    except (json.JSONDecodeError, TypeError): [st.markdown(f"- {json.dumps(item)}") for item in val]
                                 else:
                                     [st.markdown(f"- {item}") for item in val]
                             elif isinstance(val, dict):
@@ -5096,7 +5187,7 @@ def fetch_vertex_ai_live(token, extra):
         if creds:
             out["service_account"] = creds.get("client_email","")
             out["project_id"] = creds.get("project_id", project_id)
-    except:
+    except (json.JSONDecodeError, ValueError, AttributeError):
         pass
     return out
 
@@ -5492,11 +5583,10 @@ Analyse the goal and create a specific task for EACH agent. Return ONLY valid JS
     coord_text, ti, to = call_groq_raw(groq_key, coord_sys, f"Goal: {goal}", max_tokens=1200)
     token_in += ti; token_out += to
     try:
-        raw = coord_text.strip()
-        if raw.startswith("```"): raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"): raw = raw[:-3].strip()
-        master_plan = json.loads(raw)
-    except:
+        master_plan = _parse_json_robust(coord_text)
+        if "parse_error" in master_plan or "agent_tasks" not in master_plan:
+            raise ValueError("missing agent_tasks")
+    except (ValueError, KeyError):
         master_plan = {"agent_tasks": {a: {"task": f"Analyse {a} for: {goal}", "data_to_extract": []} for a in agents}}
     log(f"✅ Master plan ready — {len(agents)} agents tasked")
 
@@ -5748,7 +5838,7 @@ if page == "live_hub":
                                            (datetime.datetime.utcnow().isoformat(), member["id"]))
                                 _c.execute("INSERT INTO hub_audit_log (id,member_id,member_name,action,resource,detail) VALUES (?,?,?,?,?,?)",
                                            (str(uuid.uuid4()), member["id"], member["name"], "login", "session", "password"))
-                        except: pass
+                        except Exception: pass
                         st.success(f"Welcome, {member['name']}!")
                         st.rerun()
                     else:
@@ -5830,7 +5920,7 @@ if page == "live_hub":
                                                 (_gid, _gpic, "google", datetime.datetime.utcnow().isoformat(), _gmember["id"]))
                                             _dc.execute("INSERT INTO hub_audit_log (id,member_id,member_name,action,resource,detail) VALUES (?,?,?,?,?,?)",
                                                 (str(uuid.uuid4()), _gmember["id"], _gname, "login", "session", "google_oauth"))
-                                    except: pass
+                                    except Exception: pass
                                     st.session_state.hub_logged_in = True
                                     st.session_state.hub_member = _gmember
                                     st.session_state.hub_google_pic = _gpic
@@ -6994,7 +7084,7 @@ def chat_save_ai_job(job_id, triggered_by_id, triggered_by, excerpt, intent, con
         feed_post("chat", "ai_job_completed", triggered_by,
                   f"Chat AI routed '{intent[:60]}' → {routed_agent} ({confidence}% confidence)",
                   {"job_id": job_id, "routed_agent": routed_agent, "tokens": tokens}, icon="🤖")
-    except:
+    except Exception:
         pass
 
 # ─── AI Analyser Agent ──────────────────────────────────────────────────────────
@@ -7046,11 +7136,7 @@ def run_analyser_agent(api_key: str, chat_excerpt: str) -> dict:
         )
         raw = resp.choices[0].message.content.strip()
         tokens = resp.usage.total_tokens
-        if raw.startswith("```"):
-            raw = "\n".join(raw.split("\n")[1:])
-        if raw.endswith("```"):
-            raw = raw[:-3].strip()
-        result = json.loads(raw)
+        result = _parse_json_robust(raw)
         result["_tokens"] = tokens
         return result
     except Exception as e:
@@ -7128,7 +7214,7 @@ if page == "org_chat":
         try:
             r2,g2,b2 = int(me['avatar_color'][1:3],16),int(me['avatar_color'][3:5],16),int(me['avatar_color'][5:7],16)
             bgc = f"rgba({r2},{g2},{b2},.15)"
-        except:
+        except (ValueError, IndexError):
             bgc = "rgba(59,130,246,.15)"
         st.markdown(f"""<div style="background:{bgc};border:1px solid {me['avatar_color']}40;border-radius:8px;padding:8px 10px;">
         <div style="font-size:.82rem;font-weight:700;color:#f0f4ff;">👤 {me['display_name']}</div>
@@ -7331,7 +7417,7 @@ if page == "org_chat":
                 try:
                     kws = json.loads(rule["keywords"])
                     kw_str = ", ".join(kws[:4]) + ("..." if len(kws) > 4 else "")
-                except:
+                except (json.JSONDecodeError, TypeError):
                     kw_str = rule["keywords"]
                 st.markdown(f"""<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:4px;">
                   <div style="font-size:.75rem;font-weight:600;color:#f0f4ff;">{rule['agent_label']}</div>
@@ -7431,8 +7517,8 @@ def get_all_table_stats():
             try:
                 cnt = c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
                 stats.append({"table": t, "rows": cnt})
-            except:
-                pass
+            except sqlite3.OperationalError:
+                pass  # Table may not exist yet in older DB versions
     return stats
 
 
@@ -7473,7 +7559,7 @@ if page == "admin_db":
             with st.expander(f"{rule['agent_label']} (priority {rule['priority']})"):
                 try:
                     kws = json.loads(rule["keywords"])
-                except:
+                except (json.JSONDecodeError, TypeError):
                     kws = []
                 new_kws = st.text_input("Keywords (comma-sep)", value=", ".join(kws), key=f"kw_{rule['id']}")
                 new_pri = st.slider("Priority", 1, 10, rule["priority"], key=f"pri_{rule['id']}")
@@ -7557,10 +7643,11 @@ if page == "admin_db":
             "tasks","hub_runs","org_workflow_runs","token_budget_log","chat_daily_stats"
         ])
         if st.button("📥 Generate CSV"):
-            with db() as c:
-                rows = c.execute(f"SELECT * FROM {export_table}").fetchall()
-                col_names = [d[0] for d in c.execute(f"SELECT * FROM {export_table} LIMIT 1").description or []]
-            if rows:
+            with db() as conn:
+                cursor = conn.execute(f"SELECT * FROM {export_table}")
+                rows = cursor.fetchall()
+                col_names = [d[0] for d in cursor.description] if cursor.description else []
+            if rows and col_names:
                 df_exp = pd.DataFrame(rows, columns=col_names)
                 csv_buf = io.StringIO()
                 df_exp.to_csv(csv_buf, index=False)
@@ -7581,7 +7668,7 @@ if page == "admin_db":
                 accts = [dict(r) for r in c.execute(
                     "SELECT username,display_name,role,department,is_admin,last_login,created_at FROM chat_user_accounts ORDER BY created_at"
                 ).fetchall()]
-            except:
+            except sqlite3.OperationalError:
                 accts = []
         if accts:
             import pandas as pd
