@@ -74,112 +74,350 @@ st.set_page_config(
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .stApp { background-color: #0a0f1e; }
-    .stSidebar { background-color: #0f1629; }
-    h1, h2, h3 { color: #f1f5f9; }
-    .stMetric label { color: #94a3b8; }
-    div[data-testid="stExpander"] { background: #111827; border: 1px solid #1e293b; border-radius: 8px; }
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
-    /* Agent cards */
-    .agent-card { background: #111827; border: 1px solid #1e3a5f; border-radius: 14px;
-                  padding: 18px; margin: 6px 0; transition: border-color 0.2s; }
-    .agent-card:hover { border-color: #3b82f6; }
-    .agent-card-active { background: #0d1f3c; border: 2px solid #3b82f6 !important; }
-    .agent-card-running { background: #1a1a00; border: 2px solid #fbbf24 !important; }
-    .agent-card-done    { background: #0a1f0a; border: 2px solid #22c55e !important; }
-    .agent-card-error   { background: #1f0a0a; border: 2px solid #ef4444 !important; }
-
-    /* Status badges */
-    .status-completed { color: #4ade80; font-weight: bold; }
-    .status-failed    { color: #f87171; font-weight: bold; }
-    .status-running   { color: #fbbf24; font-weight: bold; }
-    .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:0.75rem;
-            background:#1e293b; color:#94a3b8; margin:2px; }
-
-    /* Section badges */
-    .live-badge    { background: #14532d; color: #4ade80; padding: 2px 12px;
-                     border-radius: 99px; font-size: 0.72rem; font-weight: bold; }
-    .sim-badge     { background: #1e3a5f; color: #60a5fa; padding: 2px 12px;
-                     border-radius: 99px; font-size: 0.72rem; font-weight: bold; }
-    .research-badge { background: #3b1f6b; color: #c084fc; padding: 2px 12px;
-                     border-radius: 99px; font-size: 0.72rem; font-weight: bold; }
-    .org-badge     { background: #7c2d12; color: #fb923c; padding: 2px 12px;
-                     border-radius: 99px; font-size: 0.72rem; font-weight: bold; }
-    .new-badge     { background: #0c4a6e; color: #38bdf8; padding: 2px 10px;
-                     border-radius: 99px; font-size: 0.68rem; font-weight: bold;
-                     animation: pulse 2s infinite; }
-
-    /* Layout cards */
-    .research-card { background: #111827; border-left: 4px solid #6366f1;
-                     border-radius: 8px; padding: 16px; margin: 10px 0; }
-    .issue-card    { background: #111827; border-left: 4px solid #f59e0b;
-                     border-radius: 8px; padding: 14px; margin: 8px 0; }
-    .future-card   { background: #111827; border-left: 4px solid #22d3ee;
-                     border-radius: 8px; padding: 14px; margin: 8px 0; }
-    .agent-flow    { background: #060d1a; border: 1px solid #1e293b; border-radius: 10px;
-                     padding: 12px; font-family: monospace; font-size: 0.85rem; color: #94a3b8; }
-    .org-flow      { background: #060d1a; border: 1px solid #fb923c33; border-radius: 12px;
-                     padding: 16px; font-family: monospace; font-size: 0.82rem; color: #94a3b8; }
-
-    /* ORG MODE SPECIFIC */
-    .org-header    { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-                     border-radius: 16px; padding: 24px; margin-bottom: 20px; }
-    .member-card   { background: #111827; border: 1px solid #1e3a5f; border-radius: 10px;
-                     padding: 12px; margin: 4px; text-align: center; }
-    .issue-tracker-card { background: #1a0a00; border: 1px solid #f59e0b44;
-                          border-radius: 8px; padding: 14px; margin: 6px 0; }
-    .issue-critical { border-left: 4px solid #ef4444 !important; }
-    .issue-major    { border-left: 4px solid #f59e0b !important; }
-    .issue-minor    { border-left: 4px solid #22c55e !important; }
-    .subagent-grid  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .workflow-step  { background: #111827; border-radius: 8px; padding: 10px;
-                      border: 1px solid #1e293b; text-align: center; }
-    .connector-line { color: #3b82f6; font-size: 1.5rem; text-align: center; }
-    .master-agent-box { background: linear-gradient(135deg, #1e3a5f, #1a1a3e);
-                        border: 2px solid #3b82f6; border-radius: 16px; padding: 20px;
-                        text-align: center; margin: 10px 0; }
-    .result-success { background: #0a1f0a; border: 1px solid #22c55e44;
-                      border-radius: 8px; padding: 12px; margin: 6px 0; }
-    .result-error   { background: #1f0a0a; border: 1px solid #ef444444;
-                      border-radius: 8px; padding: 12px; margin: 6px 0; }
-    .synthesis-report { background: #111827; border: 1px solid #6366f1;
-                         border-radius: 12px; padding: 20px; margin: 10px 0; }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
+    /* ── DESIGN TOKENS ─────────────────────────────────────────── */
+    :root {
+        --bg:       #060b18;
+        --bg2:      #0b1225;
+        --surface:  #0f1a30;
+        --surface2: #152035;
+        --border:   #1e3350;
+        --border2:  #253d5c;
+        --blue:     #3b82f6;
+        --blue-dim: #1d4ed8;
+        --cyan:     #06b6d4;
+        --green:    #22c55e;
+        --amber:    #f59e0b;
+        --red:      #ef4444;
+        --purple:   #8b5cf6;
+        --orange:   #f97316;
+        --text:     #f0f4ff;
+        --text2:    #94a8c8;
+        --text3:    #5a7090;
+        --glow-blue: 0 0 24px rgba(59,130,246,0.15);
+        --glow-green: 0 0 24px rgba(34,197,94,0.15);
+        --radius-sm: 8px;
+        --radius:   12px;
+        --radius-lg: 18px;
+        --radius-xl: 24px;
     }
 
-    /* Enterprise Grade Polish & Animations */
+    /* ── GLOBAL BASE ────────────────────────────────────────────── */
+    .stApp { background-color: var(--bg); font-family: 'DM Sans', sans-serif; }
+    .stSidebar { background: linear-gradient(180deg, var(--bg2) 0%, #080f1e 100%); border-right: 1px solid var(--border); }
+    .stSidebar .stMarkdown, .stSidebar label, .stSidebar .stSelectbox label { color: var(--text2) !important; font-size: 0.82rem; }
+
+    h1, h2, h3, h4 { color: var(--text) !important; font-family: 'Syne', sans-serif; letter-spacing: -0.02em; }
+    h1 { font-size: 2.2rem; font-weight: 800; }
+    h2 { font-size: 1.5rem; font-weight: 700; }
+    h3 { font-size: 1.1rem; font-weight: 700; }
+    p, li { color: var(--text2); }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; }
+
+    .stMetric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+    .stMetric label { color: var(--text3) !important; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; font-family: 'JetBrains Mono', monospace; }
+    .stMetric [data-testid="stMetricValue"] { color: var(--text) !important; font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 700; }
+    .stMetric [data-testid="stMetricDelta"] { font-size: 0.78rem; }
+
+    div[data-testid="stExpander"] { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin: 4px 0; }
+    div[data-testid="stExpander"]:hover { border-color: var(--border2); }
+    div[data-testid="stExpander"] summary { color: var(--text) !important; font-weight: 600; }
+
+    div[data-testid="stTabs"] [role="tab"] { color: var(--text3) !important; border-bottom: 2px solid transparent; font-size: 0.85rem; font-weight: 500; }
+    div[data-testid="stTabs"] [role="tab"][aria-selected="true"] { color: var(--blue) !important; border-bottom-color: var(--blue); }
+
+    .stButton > button { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius-sm); font-weight: 500; font-size: 0.88rem; transition: all 0.18s; }
+    .stButton > button:hover { background: var(--border); border-color: var(--blue); color: var(--text); box-shadow: var(--glow-blue); }
+    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #1d4ed8, #2563eb); border: none; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(59,130,246,0.3); }
+    .stButton > button[kind="primary"]:hover { background: linear-gradient(135deg, #2563eb, #3b82f6); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+
+    .stTextInput input, .stTextArea textarea, .stSelectbox select { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text) !important; border-radius: var(--radius-sm) !important; font-family: 'DM Sans', sans-serif; }
+    .stTextInput input:focus, .stTextArea textarea:focus { border-color: var(--blue) !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important; }
+    .stTextInput label, .stTextArea label, .stSelectbox label { color: var(--text2) !important; font-size: 0.82rem; font-weight: 500; }
+
+    /* Progress bar */
+    .stProgress > div > div { background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 4px; }
+    .stProgress > div { background: var(--surface); border-radius: 4px; }
+
+    /* Dataframe */
+    .stDataFrame { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .stDataFrame thead th { background: var(--surface2) !important; color: var(--text) !important; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+    .stDataFrame tbody td { background: var(--surface) !important; color: var(--text2) !important; border-bottom: 1px solid var(--border) !important; font-size: 0.85rem; }
+    .stDataFrame tbody tr:hover td { background: var(--surface2) !important; }
+
+    /* Alerts */
+    .stAlert { border-radius: var(--radius) !important; border-left-width: 4px !important; }
+    div[data-testid="stInfo"] { background: rgba(59,130,246,0.08) !important; border-left-color: var(--blue) !important; }
+    div[data-testid="stSuccess"] { background: rgba(34,197,94,0.08) !important; border-left-color: var(--green) !important; }
+    div[data-testid="stWarning"] { background: rgba(245,158,11,0.08) !important; border-left-color: var(--amber) !important; }
+    div[data-testid="stError"] { background: rgba(239,68,68,0.08) !important; border-left-color: var(--red) !important; }
+
+    /* Divider */
+    hr { border-color: var(--border) !important; margin: 20px 0 !important; }
+
+    /* ── AGENT CARDS ────────────────────────────────────────────── */
+    .agent-card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 20px; margin: 6px 0; transition: all 0.22s ease;
+        position: relative; overflow: hidden;
+    }
+    .agent-card::before {
+        content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg);
+        background: linear-gradient(135deg, rgba(59,130,246,0.04), transparent 60%);
+        pointer-events: none;
+    }
+    .agent-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: var(--glow-blue); }
+    .agent-card-active { background: rgba(29,78,216,0.12); border: 2px solid var(--blue) !important; box-shadow: var(--glow-blue); }
+    .agent-card-running { background: rgba(245,158,11,0.08); border: 2px solid var(--amber) !important; box-shadow: 0 0 20px rgba(245,158,11,0.12); }
+    .agent-card-done    { background: rgba(34,197,94,0.07); border: 2px solid var(--green) !important; box-shadow: var(--glow-green); }
+    .agent-card-error   { background: rgba(239,68,68,0.07); border: 2px solid var(--red) !important; }
+
+    /* ── STATUS BADGES ──────────────────────────────────────────── */
+    .status-completed { color: #4ade80; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .status-failed    { color: #f87171; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .status-running   { color: #fbbf24; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; animation: text-pulse 1.5s ease-in-out infinite; }
+
+    .pill {
+        display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 0.72rem;
+        background: var(--surface2); color: var(--text2); margin: 2px;
+        border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace;
+        transition: all 0.15s;
+    }
+    .pill:hover { background: var(--border); color: var(--blue); border-color: var(--blue); }
+
+    /* ── SECTION BADGES ─────────────────────────────────────────── */
+    .live-badge     { background: rgba(34,197,94,0.12); color: #4ade80; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(34,197,94,0.3); text-transform: uppercase; }
+    .sim-badge      { background: rgba(59,130,246,0.12); color: #60a5fa; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(59,130,246,0.3); text-transform: uppercase; }
+    .research-badge { background: rgba(139,92,246,0.12); color: #c084fc; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(139,92,246,0.3); text-transform: uppercase; }
+    .org-badge      { background: rgba(249,115,22,0.12); color: #fb923c; padding: 4px 14px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(249,115,22,0.3); text-transform: uppercase; }
+    .new-badge      { background: rgba(6,182,212,0.12); color: #22d3ee; padding: 4px 10px; border-radius: 99px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; border: 1px solid rgba(6,182,212,0.3); animation: pulse 2s infinite; text-transform: uppercase; }
+
+    /* ── LAYOUT CARDS ───────────────────────────────────────────── */
+    .research-card {
+        background: var(--surface); border-left: 4px solid var(--purple);
+        border-radius: 0 var(--radius) var(--radius) 0; padding: 18px; margin: 10px 0;
+        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .issue-card {
+        background: var(--surface); border-left: 4px solid var(--amber);
+        border-radius: 0 var(--radius) var(--radius) 0; padding: 16px; margin: 8px 0;
+        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .future-card {
+        background: var(--surface); border-left: 4px solid var(--cyan);
+        border-radius: 0 var(--radius) var(--radius) 0; padding: 16px; margin: 8px 0;
+        border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .agent-flow {
+        background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 0.83rem; color: var(--text2);
+        line-height: 1.7;
+    }
+    .org-flow {
+        background: var(--bg); border: 1px solid rgba(249,115,22,0.2); border-radius: var(--radius-lg);
+        padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text2);
+        line-height: 1.7;
+    }
+
+    /* ── ORG / SECTION 4 ────────────────────────────────────────── */
+    .org-header {
+        background: linear-gradient(135deg, #071220 0%, #0e2040 50%, #071220 100%);
+        border-radius: var(--radius-xl); padding: 32px; margin-bottom: 24px;
+        border: 1px solid rgba(59,130,246,0.2);
+        box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .member-card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 14px; margin: 4px; text-align: center; transition: all 0.2s;
+    }
+    .member-card:hover { border-color: var(--blue); transform: translateY(-1px); }
+    .member-chip {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 14px 16px; margin: 6px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+        transition: border-color 0.2s;
+    }
+    .member-chip:hover { border-color: var(--border2); }
+    .issue-tracker-card {
+        background: rgba(245,158,11,0.05); border: 1px solid rgba(245,158,11,0.2);
+        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+    }
+    .issue-critical { border-left: 4px solid var(--red) !important; background: rgba(239,68,68,0.06) !important; }
+    .issue-major    { border-left: 4px solid var(--amber) !important; background: rgba(245,158,11,0.06) !important; }
+    .issue-minor    { border-left: 4px solid var(--green) !important; background: rgba(34,197,94,0.06) !important; }
+    .subagent-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .workflow-step  {
+        background: var(--surface); border-radius: var(--radius); padding: 12px;
+        border: 1px solid var(--border); text-align: center; transition: all 0.2s;
+    }
+    .workflow-step:hover { border-color: var(--blue); }
+    .connector-line { color: var(--blue); font-size: 1.5rem; text-align: center; }
+    .master-agent-box {
+        background: linear-gradient(135deg, rgba(30,58,95,0.6), rgba(26,26,62,0.6));
+        border: 2px solid var(--blue); border-radius: var(--radius-xl); padding: 24px;
+        text-align: center; margin: 12px 0; box-shadow: var(--glow-blue);
+        position: relative; overflow: hidden;
+    }
+    .master-agent-box::before {
+        content: ""; position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.1), transparent 70%);
+    }
+    .result-success {
+        background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2);
+        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+    }
+    .result-error {
+        background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);
+        border-radius: var(--radius); padding: 14px; margin: 6px 0;
+    }
+    .synthesis-report {
+        background: var(--surface); border: 1px solid rgba(139,92,246,0.3);
+        border-radius: var(--radius-xl); padding: 28px; margin: 12px 0;
+        box-shadow: 0 4px 24px rgba(139,92,246,0.08);
+    }
+
+    /* ── HERO / DASHBOARD ───────────────────────────────────────── */
     .hero-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        padding: 40px; border-radius: 20px; border: 1px solid #3b82f633;
-        margin-bottom: 30px; text-align: center; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, #060f22 0%, #0d1f3f 50%, #060f22 100%);
+        padding: 48px 40px; border-radius: var(--radius-xl); margin-bottom: 32px;
+        text-align: center; position: relative; overflow: hidden;
+        border: 1px solid rgba(59,130,246,0.15);
+        box-shadow: 0 16px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .hero-header::before {
+        content: ""; position: absolute; inset: 0; pointer-events: none;
+        background:
+            radial-gradient(ellipse 60% 50% at 50% -10%, rgba(59,130,246,0.12) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 30% at 90% 50%, rgba(6,182,212,0.06) 0%, transparent 60%);
     }
     .hero-header::after {
         content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-        background: radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%);
-        animation: rotate 20s linear infinite;
+        background: radial-gradient(circle, rgba(59,130,246,0.03) 0%, transparent 70%);
+        animation: rotate 30s linear infinite; pointer-events: none;
     }
-    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .hero-stat {
+        text-align: center; padding: 12px 20px;
+        border-right: 1px solid rgba(59,130,246,0.15);
+    }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-value { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; color: #fff; line-height: 1; }
+    .hero-stat-label { font-size: 0.7rem; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── METRIC CARDS ───────────────────────────────────────────── */
     .metric-card {
-        background: #111827; border: 1px solid #1e293b; border-radius: 12px;
-        padding: 24px; transition: transform 0.2s, border-color 0.2s;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 22px; transition: all 0.22s ease; position: relative; overflow: hidden;
     }
-    .metric-card:hover { transform: translateY(-4px); border-color: #3b82f6; }
+    .metric-card::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+    }
+    .metric-card:hover { transform: translateY(-3px); border-color: var(--blue); box-shadow: var(--glow-blue); }
+
+    /* ── NODE CARDS (workflow) ───────────────────────────────────── */
     .node-card {
-        background: #1e293b; border: 2px solid #3b82f6; border-radius: 12px;
-        padding: 16px; min-width: 140px; text-align: center;
+        background: var(--surface2); border: 2px solid var(--blue); border-radius: var(--radius-lg);
+        padding: 16px; min-width: 130px; text-align: center;
+        transition: all 0.2s; box-shadow: var(--glow-blue);
     }
-    .loading-pulse { animation: skeleton-loading 1.4s ease-in-out infinite; }
-    @keyframes skeleton-loading {
-        0% { opacity: 0.6; } 50% { opacity: 1.0; } 100% { opacity: 0.6; }
+    .node-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(59,130,246,0.25); }
+
+    /* ── KNOWLEDGE BASE CARDS ───────────────────────────────────── */
+    .kb-entry {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 14px 16px; margin: 6px 0; transition: border-color 0.2s;
     }
+    .kb-entry:hover { border-color: var(--border2); }
+
+    /* ── API STEP GUIDES ────────────────────────────────────────── */
+    .api-step {
+        background: rgba(34,197,94,0.05); border: 1px solid rgba(34,197,94,0.2);
+        border-radius: var(--radius); padding: 14px 16px; margin: 8px 0; font-size: 0.87rem;
+    }
+    .api-step a { color: var(--blue) !important; text-decoration: none; }
+    .api-step a:hover { text-decoration: underline; }
+
+    /* ── QUICK LAUNCH CARDS ──────────────────────────────────────── */
     .quick-launch-card {
-        background: #0f172a; border: 1px solid #1e293b; border-radius: 12px;
-        padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 20px; text-align: center; cursor: pointer; transition: all 0.22s;
+        position: relative; overflow: hidden;
     }
-    .quick-launch-card:hover { background: #1e293b; border-color: #3b82f6; transform: scale(1.04); }
+    .quick-launch-card::before {
+        content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+        transform: scaleX(0); transition: transform 0.22s;
+    }
+    .quick-launch-card:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: var(--glow-blue); }
+    .quick-launch-card:hover::before { transform: scaleX(1); }
+
+    /* ── HUB / SECTION 5 ────────────────────────────────────────── */
+    .hub-hero {
+        background: linear-gradient(135deg, #030d04, #061a06, #030d04);
+        border: 1px solid rgba(22,163,74,0.25); border-radius: var(--radius-xl);
+        padding: 36px; margin-bottom: 28px;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 60px rgba(22,163,74,0.04);
+    }
+    .login-card {
+        background: var(--bg2); border: 1px solid rgba(22,163,74,0.3); border-radius: var(--radius-xl);
+        padding: 36px; max-width: 460px; margin: 40px auto;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .member-avatar {
+        width: 44px; height: 44px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 1.1rem; color: #fff;
+        font-family: 'Syne', sans-serif;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .automation-card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 18px; margin: 8px 0; transition: all 0.2s; cursor: default;
+    }
+    .automation-card:hover { border-color: var(--border2); background: var(--surface2); }
+    .run-log-entry {
+        font-family: 'JetBrains Mono', monospace; font-size: 0.79rem;
+        padding: 4px 8px; border-radius: 4px; margin: 2px 0;
+        background: rgba(255,255,255,0.03); border-left: 2px solid var(--border);
+    }
+    .run-log-entry.level-info  { border-left-color: var(--blue); }
+    .run-log-entry.level-warn  { border-left-color: var(--amber); }
+    .run-log-entry.level-error { border-left-color: var(--red); }
+    .run-log-entry.level-success { border-left-color: var(--green); }
+
+    /* ── SECTION 6 / DOCS ───────────────────────────────────────── */
+    .doc-section {
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+        padding: 24px; margin: 12px 0;
+    }
+    .doc-section h3 { color: var(--cyan) !important; }
+
+    /* ── ANIMATIONS ─────────────────────────────────────────────── */
+    @keyframes pulse     { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+    @keyframes text-pulse{ 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+    @keyframes rotate    { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes shimmer {
+        0%   { background-position: -400px 0; }
+        100% { background-position: 400px 0; }
+    }
+    @keyframes skeleton-loading { 0% { opacity: 0.5; } 50% { opacity: 1.0; } 100% { opacity: 0.5; } }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes glow-pulse {
+        0%,100% { box-shadow: var(--glow-blue); }
+        50% { box-shadow: 0 0 40px rgba(59,130,246,0.3); }
+    }
+
+    .loading-pulse { animation: skeleton-loading 1.4s ease-in-out infinite; }
+    .fade-in       { animation: fadeInUp 0.4s ease-out; }
+
+    /* ── SCROLLBAR ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1641,17 +1879,24 @@ def render_hero_dashboard():
     success_rate = round(100 * n_done / max(len(tasks),1), 1)
     budget = get_daily_budget_stats()
     org_runs = get_org_workflow_runs(5)
-    
+    sr_color = "#4ade80" if success_rate >= 80 else "#fbbf24" if success_rate >= 60 else "#f87171"
+
     st.markdown(f'''
     <div class="hero-header">
-        <h1 style="color:white;margin:0;font-size:2.8rem;font-weight:900;">SAAP COMMAND CENTER</h1>
-        <p style="color:#93c5fd;font-size:1.1rem;margin-top:8px;">Enterprise-Grade Autonomous Agent Orchestration Platform — v5.5</p>
-        <div style="display:flex;justify-content:center;gap:40px;margin-top:25px;flex-wrap:wrap;">
-            <div style="text-align:center;"><div style="color:white;font-size:1.5rem;font-weight:700;">{len(tasks)}</div><div style="color:#60a5fa;font-size:0.8rem;">TOTAL TASKS</div></div>
-            <div style="text-align:center;"><div style="color:#4ade80;font-size:1.5rem;font-weight:700;">{success_rate}%</div><div style="color:#60a5fa;font-size:0.8rem;">SUCCESS RATE</div></div>
-            <div style="text-align:center;"><div style="color:white;font-size:1.5rem;font-weight:700;">{get_platform_uptime()}</div><div style="color:#60a5fa;font-size:0.8rem;">UPTIME</div></div>
-            <div style="text-align:center;"><div style="color:#fbbf24;font-size:1.5rem;font-weight:700;">{len(org_runs)}</div><div style="color:#60a5fa;font-size:0.8rem;">ORG WORKFLOWS</div></div>
-            <div style="text-align:center;"><div style="color:#c084fc;font-size:1.5rem;font-weight:700;">{budget["total"]:,}</div><div style="color:#60a5fa;font-size:0.8rem;">TOKENS TODAY</div></div>
+        <div style="position:relative;z-index:1;">
+            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:99px;padding:5px 16px;margin-bottom:16px;">
+                <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
+                <span style="color:#93c5fd;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">SYSTEM ONLINE · v5.5</span>
+            </div>
+            <h1 style="color:#f0f4ff;margin:0 0 10px;font-size:3rem;font-weight:800;letter-spacing:-0.04em;font-family:'Syne',sans-serif;line-height:1.1;">SAAP COMMAND CENTER</h1>
+            <p style="color:#60a5fa;font-size:1rem;margin:0 0 32px;font-weight:400;opacity:0.85;">Smart Autonomous Agent Platform · Enterprise Orchestration</p>
+            <div style="display:flex;justify-content:center;align-items:stretch;gap:0;background:rgba(255,255,255,0.03);border:1px solid rgba(59,130,246,0.12);border-radius:14px;padding:16px 0;flex-wrap:wrap;max-width:700px;margin:0 auto;">
+                <div class="hero-stat"><div class="hero-stat-value">{len(tasks)}</div><div class="hero-stat-label">Total Tasks</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="color:{sr_color};">{success_rate}%</div><div class="hero-stat-label">Success Rate</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="font-size:1.3rem;">{get_platform_uptime()}</div><div class="hero-stat-label">Uptime</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="color:#fbbf24;">{len(org_runs)}</div><div class="hero-stat-label">Org Workflows</div></div>
+                <div class="hero-stat" style="border-right:none;"><div class="hero-stat-value" style="color:#c084fc;">{budget["total"]:,}</div><div class="hero-stat-label">Tokens Today</div></div>
+            </div>
         </div>
     </div>
     ''', unsafe_allow_html=True)
@@ -1750,8 +1995,13 @@ Compared to other platforms:
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## 🏢 SAAP v4.0")
-    st.caption("Smart Autonomous Agent Platform — Organisation Edition")
+    # Brand header
+    st.markdown("""
+<div style="padding:12px 0 4px;">
+  <div style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#f0f4ff;letter-spacing:-0.02em;">SAAP <span style="color:#3b82f6;">v5.5</span></div>
+  <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-top:2px;">Autonomous Agent Platform</div>
+</div>
+""", unsafe_allow_html=True)
     st.divider()
 
     secret_key = ""
@@ -1768,13 +2018,13 @@ with st.sidebar:
         help="Free key at console.groq.com"
     )
     if secret_key:
-        st.caption("✅ Key loaded from secrets")
+        st.markdown('<span style="color:#4ade80;font-size:0.78rem;">✅ Key loaded from secrets</span>', unsafe_allow_html=True)
     else:
-        st.info("Get free key → [console.groq.com](https://console.groq.com)")
+        st.markdown('<div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:0.8rem;color:#60a5fa;">Get a free key → <a href="https://console.groq.com" target="_blank" style="color:#93c5fd;text-decoration:underline;">console.groq.com</a></div>', unsafe_allow_html=True)
 
     st.divider()
 
-    st.markdown("### Navigate")
+    st.markdown('<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px;">Navigate</div>', unsafe_allow_html=True)
     section = st.radio("Section", [
         "📘 Section 1 — Workflow Demo",
         "🔬 Section 2 — Live Research Agent",
@@ -1811,6 +2061,7 @@ with st.sidebar:
     tasks_all = get_tasks(200)
     n_done = sum(1 for t in tasks_all if t["status"] == "COMPLETED")
     n_fail = sum(1 for t in tasks_all if t["status"] == "FAILED")
+    st.markdown('<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px;">Task Stats</div>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     c1.metric("Total", len(tasks_all))
     c2.metric("✅", n_done)
@@ -1820,33 +2071,34 @@ with st.sidebar:
     st.divider()
     stats = get_daily_budget_stats()
     usage_pct = (stats["total"] / DAILY_TOKEN_BUDGET)
-    st.markdown(f"### 📊 Daily Token Budget")
+    bar_color = "#ef4444" if usage_pct > 0.8 else "#f59e0b" if usage_pct > 0.5 else "#22c55e"
+    st.markdown(f'<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Daily Token Budget</div>', unsafe_allow_html=True)
     st.progress(min(usage_pct, 1.0), text=f"{stats['total']:,} / {DAILY_TOKEN_BUDGET:,}")
-    if usage_pct > 0.8: st.warning("⚠️ Budget at 80%+")
-    st.caption(f"Est. Cost Today: **${stats['cost']:.4f}**")
+    if usage_pct > 0.8:
+        st.warning("⚠️ Budget at 80%+")
+    st.markdown(f'<div style="font-size:0.78rem;color:var(--text2);">Est. cost today: <strong style="color:#f0f4ff;">${stats["cost"]:.4f}</strong></div>', unsafe_allow_html=True)
 
     # ── Scheduler Status ──
     scheds = get_schedules()
     if scheds:
         st.divider()
-        st.markdown(f"### 🕒 Active Schedules ({len(scheds)})")
+        st.markdown(f'<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Active Schedules ({len(scheds)})</div>', unsafe_allow_html=True)
         for s in scheds[:2]:
-            st.caption(f"• **{s['automation_name']}**: next in {s['interval_min']}m")
+            st.markdown(f'<div style="font-size:0.78rem;color:var(--text2);padding:3px 0;">⏱ <strong>{s["automation_name"]}</strong>: next in {s["interval_min"]}m</div>', unsafe_allow_html=True)
 
     if page == "org_mode":
         st.divider()
         org_runs = get_org_workflow_runs(5)
         org_issues = get_org_issues(limit=100)
         open_issues = [i for i in org_issues if i.get("status") == "open"]
-        st.markdown("### 🏢 Org Stats")
+        st.markdown('<div style="font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Org Mode</div>', unsafe_allow_html=True)
         oc1, oc2 = st.columns(2)
-        oc1.metric("Org Runs", len(org_runs))
+        oc1.metric("Runs", len(org_runs))
         oc2.metric("⚠️ Issues", len(open_issues))
 
     if page == "live_hub":
         st.divider()
-        st.markdown("### ⚡ Live Hub")
-        st.caption("Real APIs · Live DB · Automations")
+        st.markdown('<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:8px 10px;font-size:0.78rem;color:#86efac;text-align:center;">⚡ Live Hub Active<br><span style="color:var(--text3);font-size:0.72rem;">Real APIs · Live DB · Automations</span></div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1859,10 +2111,15 @@ if page == "org_mode":
     # Header
     st.markdown("""
 <div class="org-header">
-<h1 style="color:#f1f5f9; margin:0;">🏢 SAAP Organisation Intelligence Platform</h1>
-<p style="color:#94a3b8; margin:8px 0 0 0; font-size:1.05rem;">
-One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · Live Issue Tracking · Multi-User Control
-</p>
+  <div style="position:relative;z-index:1;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);border-radius:99px;padding:4px 14px;margin-bottom:14px;">
+      <span style="color:#fb923c;font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">ENTERPRISE ORCHESTRATION MODE</span>
+    </div>
+    <h1 style="color:#f0f4ff;margin:0 0 10px;font-size:2.4rem;font-weight:800;letter-spacing:-0.03em;font-family:'Syne',sans-serif;">🏢 Organisation Intelligence Platform</h1>
+    <p style="color:#94a8c8;margin:0;font-size:0.95rem;line-height:1.6;">
+      <span style="color:#fb923c;font-weight:600;">1</span> Master Coordinator · <span style="color:#fb923c;font-weight:600;">12</span> Specialist Sub-Agents · <span style="color:#fb923c;font-weight:600;">9</span> Real API Integrations · Live Issue Tracking · Multi-User RBAC
+    </p>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1888,43 +2145,44 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
     # ═══════════════════════════════════════════
     with org_tabs[0]:
         st.subheader("🏗️ Organisation Architecture")
-        st.markdown("**SAAP Organisation Mode** puts a single Master Coordinator Agent in charge of 12 specialist sub-agents. Unlike simple chatbots, this is a real hierarchical AI organisation.")
+        st.markdown('<p style="color:var(--text2);margin-top:-8px;">SAAP Organisation Mode puts a single Master Coordinator Agent in charge of 12 specialist sub-agents working in concert — a real hierarchical AI organisation.</p>', unsafe_allow_html=True)
 
-        # Architecture diagram
+        # Architecture diagram — improved visual layout
         st.markdown("""
 <div class="org-flow">
-<strong style="color:#fb923c; font-size:1rem;">SAAP ORGANISATION HIERARCHY</strong>
-<br><br>
-<span style="color:#f1f5f9;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌──────────────────────────────────────┐
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  🧭  MASTER COORDINATOR AGENT        │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  • Decomposes org goals               │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  • Assigns tasks to sub-agents        │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  • Resolves inter-agent conflicts      │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  • Monitors execution health          │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└──────────────────────────────────────┘
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌─────────────────────────────┼──────────────────────────────┐
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│
-&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼
-<span style="color:#60a5fa;">GOOGLE WORKSPACE</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#a78bfa;">DEV TOOLS</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#34d399;">BUSINESS OPS</span>
-📧 Gmail&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🐙 GitHub&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💬 Slack
-📅 Calendar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🎯 Jira&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🏢 HubSpot
-📁 Drive&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔷 Linear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📝 Notion
-📊 Sheets&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌐 Web Scraper&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🗃️ Airtable
-<br>
-<span style="color:#f1f5f9;">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;┌──────────────────────────────────────┐
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  🧠  MASTER SYNTHESIZER               │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  Integrates all sub-agent outputs     │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  → Executive Summary Report           │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  → Issue Tracker Update               │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│  → Strategic Recommendations          │
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└──────────────────────────────────────┘
+<div style="text-align:center;margin-bottom:16px;">
+  <span style="color:#fb923c;font-size:0.78rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">SAAP ORGANISATION HIERARCHY</span>
+</div>
+<div style="text-align:center;margin-bottom:8px;">
+  <div style="display:inline-block;background:rgba(249,115,22,0.1);border:2px solid rgba(249,115,22,0.4);border-radius:12px;padding:14px 28px;max-width:440px;">
+    <div style="font-size:1.4rem;margin-bottom:4px;">🧭</div>
+    <div style="color:#fb923c;font-weight:700;font-size:0.9rem;">MASTER COORDINATOR AGENT</div>
+    <div style="color:var(--text2);font-size:0.78rem;margin-top:4px;">Decomposes goals · Assigns tasks · Monitors health · Resolves conflicts</div>
+  </div>
+</div>
+<div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
+<div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:8px 0 12px;">
+  <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
+    <div style="color:#60a5fa;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Google Workspace</div>
+    <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">📧 Gmail<br>📅 Calendar<br>📁 Drive<br>📊 Sheets</div>
+  </div>
+  <div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
+    <div style="color:#a78bfa;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Dev Tools</div>
+    <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">🐙 GitHub<br>🎯 Jira<br>🔷 Linear<br>🌐 Scraper</div>
+  </div>
+  <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:12px 16px;min-width:140px;">
+    <div style="color:#4ade80;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Business Ops</div>
+    <div style="color:var(--text2);font-size:0.82rem;line-height:1.8;">💬 Slack<br>🏢 HubSpot<br>📝 Notion<br>🗃️ Airtable</div>
+  </div>
+</div>
+<div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
+<div style="text-align:center;">
+  <div style="display:inline-block;background:rgba(139,92,246,0.1);border:2px solid rgba(139,92,246,0.35);border-radius:12px;padding:14px 28px;max-width:440px;">
+    <div style="font-size:1.3rem;margin-bottom:4px;">🧠</div>
+    <div style="color:#c084fc;font-weight:700;font-size:0.9rem;">MASTER SYNTHESIZER</div>
+    <div style="color:var(--text2);font-size:0.78rem;margin-top:4px;">Integrates outputs · Executive Report · Issue Tracker · Strategic Recommendations</div>
+  </div>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1937,32 +2195,35 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
             cats.setdefault(info["category"], []).append((name, info))
 
         for cat, agents in cats.items():
-            st.markdown(f"**{cat}**")
+            cat_color = {"Google": "#3b82f6", "Dev Tools": "#8b5cf6", "Messaging": "#06b6d4", "Productivity": "#f59e0b", "Web": "#22d3ee", "CRM": "#f97316"}.get(cat, "#3b82f6")
+            st.markdown(f'<div style="font-size:0.72rem;font-weight:700;color:{cat_color};text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;margin:12px 0 8px;">{cat}</div>', unsafe_allow_html=True)
             cols = st.columns(len(agents))
             for i, (agent_name, agent_info) in enumerate(agents):
                 with cols[i]:
-                    with st.container(border=True):
-                        st.markdown(f"### {agent_info['icon']}")
-                        st.markdown(f"**{agent_info['name']}**")
-                        st.caption(agent_info['specialisation'])
-                        st.markdown(f"<span class='pill'>🌐 {agent_info['real_api']}</span>", unsafe_allow_html=True)
+                    st.markdown(f"""<div class="agent-card" style="border-top:3px solid {cat_color};padding:14px;text-align:center;">
+<div style="font-size:2rem;margin-bottom:6px;">{agent_info['icon']}</div>
+<div style="color:var(--text);font-weight:700;font-size:0.82rem;line-height:1.3;margin-bottom:4px;">{agent_info['name']}</div>
+<div style="color:var(--text3);font-size:0.72rem;margin-bottom:6px;font-family:'JetBrains Mono',monospace;">{agent_info['real_api']}</div>
+<div style="color:var(--text2);font-size:0.74rem;line-height:1.4;">{agent_info['specialisation'][:50]}...</div>
+</div>""", unsafe_allow_html=True)
             st.markdown("")
 
         st.divider()
         st.subheader("🔬 What Makes This Different From Section 1 & 2?")
         diff_cols = st.columns(3)
-        with diff_cols[0]:
-            with st.container(border=True):
-                st.markdown("**📘 Section 1 — Workflow Demo**")
-                st.markdown("- Single agent runs\n- Simulated output\n- No coordination\n- Educational demo")
-        with diff_cols[1]:
-            with st.container(border=True):
-                st.markdown("**🔬 Section 2 — Research Agent**")
-                st.markdown("- Research focus only\n- 5 research agents\n- Academic analysis\n- Report generation")
-        with diff_cols[2]:
-            with st.container(border=True):
-                st.markdown("**🏢 Section 4 — Real Org Mode** 🆕")
-                st.markdown("- 12 real sub-agents\n- Master coordinator\n- Live issue detection\n- Multi-user control\n- Real API support\n- Synthesis dashboard")
+        diff_data = [
+            ("📘", "Section 1 — Workflow Demo", "#3b82f6", ["Single agent runs", "Simulated output", "No coordination", "Educational demo"]),
+            ("🔬", "Section 2 — Research Agent", "#8b5cf6", ["Research focus only", "5 research agents", "Academic analysis", "Report generation"]),
+            ("🏢", "Section 4 — Real Org Mode", "#f97316", ["12 real sub-agents", "Master coordinator", "Live issue detection", "Multi-user RBAC", "Real API support", "Synthesis dashboard"]),
+        ]
+        for col, (icon, title, color, bullets) in zip(diff_cols, diff_data):
+            with col:
+                bullet_html = "".join([f'<div style="padding:2px 0;display:flex;gap:6px;"><span style="color:{color};">▸</span><span style="color:var(--text2);font-size:0.84rem;">{b}</span></div>' for b in bullets])
+                st.markdown(f"""<div class="metric-card">
+<div style="font-size:1.4rem;margin-bottom:8px;">{icon}</div>
+<div style="color:var(--text);font-weight:700;font-size:0.9rem;margin-bottom:10px;">{title}</div>
+{bullet_html}
+</div>""", unsafe_allow_html=True)
 
 
     # ═══════════════════════════════════════════
@@ -2131,13 +2392,19 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
             if final_data.get("issues_found"):
                 st.subheader(f"⚠️ {len(final_data['issues_found'])} Issues Detected")
                 for issue in final_data["issues_found"][:3]:
-                    sev_color = "#ef4444" if issue["severity"] == "critical" else "#f59e0b" if issue["severity"] == "major" else "#22c55e"
+                    sev = issue["severity"]
+                    sev_color = "#ef4444" if sev == "critical" else "#f59e0b" if sev == "major" else "#22c55e"
+                    sev_bg    = "rgba(239,68,68,0.06)" if sev == "critical" else "rgba(245,158,11,0.06)" if sev == "major" else "rgba(34,197,94,0.06)"
+                    sev_label = sev.upper()
                     st.markdown(f"""
-<div style="background:#1a0a00;border-left:4px solid {sev_color};border-radius:8px;padding:12px;margin:6px 0;">
-<strong style="color:#f1f5f9;">{issue['code']} — {issue['type']}</strong>
-<span style="color:#94a3b8;font-size:0.85rem;"> | {issue.get('agent_from','?')} → {issue.get('agent_to','?')}</span><br>
-<span style="color:#cbd5e1;">{issue['description'][:150]}</span><br>
-<span style="color:#60a5fa;font-size:0.82rem;">Fix: {issue['suggested_fix'][:100]}</span>
+<div style="background:{sev_bg};border-left:4px solid {sev_color};border-radius:0 10px 10px 0;padding:14px 16px;margin:8px 0;border:1px solid {sev_color}33;border-left-width:4px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+    <span style="font-family:'JetBrains Mono',monospace;color:{sev_color};font-size:0.72rem;font-weight:700;background:{sev_color}18;border:1px solid {sev_color}44;border-radius:4px;padding:1px 8px;">{sev_label}</span>
+    <strong style="color:#f0f4ff;font-size:0.92rem;">{issue['code']} — {issue['type']}</strong>
+    <span style="color:#5a7090;font-size:0.82rem;font-family:'JetBrains Mono',monospace;">{issue.get('agent_from','?')} → {issue.get('agent_to','?')}</span>
+  </div>
+  <p style="color:#94a8c8;font-size:0.85rem;margin:0 0 6px;line-height:1.5;">{issue['description'][:160]}</p>
+  <div style="display:flex;align-items:center;gap:6px;"><span style="color:#60a5fa;font-size:0.75rem;font-weight:600;">💡 FIX:</span><span style="color:#60a5fa;font-size:0.82rem;">{issue['suggested_fix'][:110]}</span></div>
 </div>
 """, unsafe_allow_html=True)
                 st.info("Full issue analysis in **Issue Tracker** tab →")
@@ -2424,7 +2691,7 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
     # ═══════════════════════════════════════════
     with org_tabs[4]:
         st.subheader("⚠️ Organisation Issue Tracker")
-        st.markdown("Real issues detected during agent workflow executions — tracked, categorised, and analysed.")
+        st.markdown('<p style="color:var(--text2);margin-top:-8px;">Real issues detected during agent workflow executions — tracked, categorised, and analysed with suggested fixes.</p>', unsafe_allow_html=True)
 
         # Live issue metrics
         all_issues = get_org_issues(limit=200)
@@ -2433,14 +2700,30 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
         critical = [i for i in open_issues if i.get("severity") == "critical"]
         major = [i for i in open_issues if i.get("severity") == "major"]
 
-        i1, i2, i3, i4, i5 = st.columns(5)
-        i1.metric("Total Issues", len(all_issues))
-        i2.metric("🔴 Critical", len(critical))
-        i3.metric("🟡 Major", len(major))
-        i4.metric("🟢 Open", len(open_issues))
-        i5.metric("✅ Resolved", len(resolved))
-
-        st.divider()
+        # Metric summary bar
+        st.markdown(f"""
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+  <div style="flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:var(--text);font-family:'Syne',sans-serif;">{len(all_issues)}</div>
+    <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Total</div>
+  </div>
+  <div style="flex:1;min-width:100px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.25);border-radius:12px;padding:16px;text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#f87171;font-family:'Syne',sans-serif;">{len(critical)}</div>
+    <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Critical</div>
+  </div>
+  <div style="flex:1;min-width:100px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:16px;text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#fbbf24;font-family:'Syne',sans-serif;">{len(major)}</div>
+    <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Major</div>
+  </div>
+  <div style="flex:1;min-width:100px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:16px;text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#60a5fa;font-family:'Syne',sans-serif;">{len(open_issues)}</div>
+    <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Open</div>
+  </div>
+  <div style="flex:1;min-width:100px;background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);border-radius:12px;padding:16px;text-align:center;">
+    <div style="font-size:1.6rem;font-weight:800;color:#4ade80;font-family:'Syne',sans-serif;">{len(resolved)}</div>
+    <div style="font-size:0.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;">Resolved</div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
         # Issue filters
         fc1, fc2, fc3 = st.columns(3)
@@ -2454,7 +2737,7 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
         if f_status != "All": filtered_issues = [i for i in filtered_issues if i.get("status") == f_status]
         if f_agent != "All": filtered_issues = [i for i in filtered_issues if i.get("agent_name") == f_agent]
 
-        st.markdown(f"**{len(filtered_issues)} issue(s) matching filters**")
+        st.markdown(f'<p style="color:var(--text2);font-size:0.85rem;"><strong style="color:var(--text);">{len(filtered_issues)}</strong> issue(s) matching filters</p>', unsafe_allow_html=True)
 
         if not filtered_issues:
             st.info("No issues match your filters. Run a workflow to detect issues, or adjust the filters above.")
@@ -2462,26 +2745,34 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
             for issue in filtered_issues[:30]:
                 sev = issue.get("severity", "major")
                 sev_color = "#ef4444" if sev == "critical" else "#f59e0b" if sev == "major" else "#22c55e"
-                sev_label = "🔴 CRITICAL" if sev == "critical" else "🟡 MAJOR" if sev == "major" else "🟢 MINOR"
+                sev_bg    = "rgba(239,68,68,0.06)" if sev == "critical" else "rgba(245,158,11,0.06)" if sev == "major" else "rgba(34,197,94,0.06)"
+                sev_label = sev.upper()
                 status_icon = "✅" if issue.get("status") == "resolved" else "⚠️"
+                status_color = "#4ade80" if issue.get("status") == "resolved" else sev_color
 
                 with st.container():
                     st.markdown(f"""
-<div class="issue-tracker-card" style="border-left-color:{sev_color};">
-<div style="display:flex;justify-content:space-between;align-items:center;">
-  <span><strong style="color:#f1f5f9;">{status_icon} {issue.get('title','Untitled')}</strong>
-  <span style="color:{sev_color};font-size:0.78rem;margin-left:10px;">{sev_label}</span></span>
-  <span style="color:#64748b;font-size:0.78rem;">{issue.get('created_at','')[:16]}</span>
-</div>
-<div style="color:#94a3b8;margin:6px 0;font-size:0.88rem;">
-  Agent: <code>{issue.get('agent_name','?')}</code> | Type: {issue.get('issue_type','?')}
-</div>
-<div style="color:#cbd5e1;margin:4px 0;">{issue.get('description','')[:200]}</div>
-<div style="color:#60a5fa;margin-top:6px;font-size:0.84rem;">💡 Fix: {issue.get('suggested_fix','?')[:120]}</div>
+<div class="issue-tracker-card issue-{sev}" style="border-left:4px solid {sev_color};">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-family:'JetBrains Mono',monospace;color:{sev_color};font-size:0.7rem;font-weight:700;background:{sev_color}1a;border:1px solid {sev_color}44;border-radius:4px;padding:2px 8px;">{sev_label}</span>
+      <strong style="color:#f0f4ff;font-size:0.93rem;">{status_icon} {issue.get('title','Untitled')}</strong>
+    </div>
+    <span style="color:var(--text3);font-size:0.75rem;font-family:'JetBrains Mono',monospace;">{issue.get('created_at','')[:16]}</span>
+  </div>
+  <div style="color:var(--text2);margin-bottom:6px;font-size:0.84rem;">
+    Agent: <code style="background:var(--surface2);padding:1px 6px;border-radius:4px;color:#93c5fd;">{issue.get('agent_name','?')}</code>
+    &nbsp;|&nbsp; Type: <span style="color:var(--text2);">{issue.get('issue_type','?')}</span>
+  </div>
+  <p style="color:var(--text2);margin:0 0 8px;font-size:0.86rem;line-height:1.5;">{issue.get('description','')[:220]}</p>
+  <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:6px;padding:8px 10px;display:flex;gap:6px;align-items:flex-start;">
+    <span style="color:#60a5fa;font-size:0.75rem;font-weight:700;white-space:nowrap;">💡 FIX</span>
+    <span style="color:#93c5fd;font-size:0.83rem;">{issue.get('suggested_fix','?')[:130]}</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
                     if issue.get("status") == "open":
-                        if st.button(f"✅ Resolve #{issue['id'][:6]}", key=f"res_{issue['id']}"):
+                        if st.button(f"✅ Mark Resolved", key=f"res_{issue['id']}"):
                             resolve_issue(issue["id"])
                             st.rerun()
 
@@ -2489,7 +2780,7 @@ One Master Coordinator · 12 Specialist Sub-Agents · Real API Integrations · L
 
         # Known issue taxonomy
         st.subheader("📚 Known Inter-Agent Issue Taxonomy")
-        st.markdown("These are all researched, documented inter-agent issues in the SAAP system:")
+        st.markdown('<p style="color:var(--text2);margin-top:-8px;">All researched and documented inter-agent failure patterns in the SAAP system.</p>', unsafe_allow_html=True)
 
         import pandas as pd
         taxonomy = []
@@ -2887,7 +3178,7 @@ elif "📘" in section and page == "🏠 Dashboard":
 elif "📘" in section and page == "🚀 Run Agent":
     st.markdown('<span class="sim-badge">SECTION 1 — WORKFLOW DEMO</span>', unsafe_allow_html=True)
     st.title("🚀 Run an Agent")
-    st.markdown("Select any of the 12 agents, customise the payload and run it live.")
+    st.markdown('<p style="color:var(--text2);margin-top:-8px;">Select any of the 12 specialist agents, configure the JSON payload, and execute live against the Groq API.</p>', unsafe_allow_html=True)
 
     agents = get_agents()
     agent_map = {a["name"]: a for a in agents}
@@ -2899,15 +3190,23 @@ elif "📘" in section and page == "🚀 Run Agent":
     sel_agent = agent_map[sel_name]
 
     actions = json.loads(sel_agent.get("actions", "[]"))
-    with st.container(border=True):
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.markdown(f"### {sel_agent['icon']} **{sel_agent['name']}**")
-            st.markdown(sel_agent["description"])
-        with col2:
-            st.markdown("**Available actions:**")
-            for act in actions:
-                st.markdown(f"- `{act}`")
+    # Enhanced agent profile card
+    cat_colors = {"Google": "#4285f4", "Dev Tools": "#22c55e", "Messaging": "#8b5cf6", "Productivity": "#f59e0b", "Web": "#06b6d4", "CRM": "#f97316"}
+    cat_color = cat_colors.get(sel_agent.get("category",""), "#3b82f6")
+    action_pills = "".join([f'<span class="pill">{a}</span>' for a in actions])
+    st.markdown(f"""<div class="agent-card" style="border-left:4px solid {cat_color};margin-bottom:20px;">
+<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+  <div style="font-size:2.8rem;line-height:1;">{sel_agent['icon']}</div>
+  <div style="flex:1;min-width:200px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span style="color:var(--text);font-size:1.1rem;font-weight:700;font-family:'Syne',sans-serif;">{sel_agent['name']}</span>
+      <span style="background:rgba(255,255,255,0.06);color:var(--text2);border-radius:4px;padding:1px 8px;font-size:0.72rem;font-family:'JetBrains Mono',monospace;">{sel_agent.get('category','')}</span>
+    </div>
+    <p style="color:var(--text2);font-size:0.87rem;margin:0 0 10px;line-height:1.5;">{sel_agent['description']}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;">{action_pills}</div>
+  </div>
+</div>
+</div>""", unsafe_allow_html=True)
 
     st.subheader("Configure Payload")
     default_payload = DEFAULT_PAYLOADS.get(sel_name, {})
@@ -3469,11 +3768,7 @@ User Dashboard (Streamlit tabs)
 elif page == "live_org":
     st.markdown('<span class="live-badge">SECTION 2 — LIVE RESEARCH AGENT SYSTEM</span>', unsafe_allow_html=True)
     st.title("🔬 Live Research Organisation Agent")
-    st.markdown("""
-This is a **real, working multi-agent research system** powered by the Groq API.
-Five specialist sub-agents collaborate in a hierarchical structure to perform deep research on any topic.
-**All agent outputs here are real LLM calls** — not simulations.
-""")
+    st.markdown('<p style="color:var(--text2);margin-top:-8px;">A real, working multi-agent research system powered by the Groq API. Five specialist sub-agents collaborate in a hierarchical structure to perform deep research on any topic. <strong style="color:var(--text);">All outputs are real LLM calls</strong> — not simulations.</p>', unsafe_allow_html=True)
 
     if not api_key:
         st.error("🔑 This section requires your Groq API key. Paste it in the sidebar.")
@@ -3484,26 +3779,24 @@ Five specialist sub-agents collaborate in a hierarchical structure to perform de
     with col_org[1]:
         st.markdown("""
 <div class="agent-flow">
-┌──────────────────────────────────────────────────────┐
-│             🧭  COORDINATOR AGENT                    │
-│     Decomposes goal · Assigns tasks · Sets criteria  │
-└──────────┬────────────┬───────────────┬──────────────┘
-           │            │               │
-     ┌─────┘      ┌─────┘         ┌────┘
-     ▼            ▼               ▼
-┌─────────┐  ┌──────────┐  ┌───────────┐
-│📚 LIT.  │  │📊 DATA   │  │🔍 GAP     │
-│AGENT    │  │ANALYST   │  │FINDER     │
-└────┬────┘  └────┬─────┘  └─────┬─────┘
-     └────────────┼───────────────┘
-                  ▼
-        ┌──────────────────┐
-        │  🧠 SYNTHESIZER  │
-        └────────┬─────────┘
-                 ▼
-        ┌──────────────────┐
-        │  ✍️ REPORT WRITER │
-        └──────────────────┘
+<div style="text-align:center;margin-bottom:8px;">
+  <span style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:8px 20px;display:inline-block;color:#93c5fd;font-weight:700;">🧭 COORDINATOR AGENT</span>
+  <div style="color:var(--text3);font-size:0.78rem;margin-top:4px;">Decomposes goal · Assigns tasks · Sets success criteria</div>
+</div>
+<div style="display:flex;justify-content:center;gap:2px;margin:8px 0;color:var(--blue);">──┬──────────┬──────────────┬──</div>
+<div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:8px;">
+  <span style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.25);border-radius:8px;padding:6px 14px;color:#c084fc;font-size:0.85rem;">📚 LITERATURE</span>
+  <span style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.25);border-radius:8px;padding:6px 14px;color:#22d3ee;font-size:0.85rem;">📊 DATA ANALYST</span>
+  <span style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:6px 14px;color:#fbbf24;font-size:0.85rem;">🔍 GAP FINDER</span>
+</div>
+<div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
+<div style="text-align:center;margin-bottom:6px;">
+  <span style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:6px 16px;display:inline-block;color:#4ade80;font-size:0.85rem;">🧠 SYNTHESIZER</span>
+</div>
+<div style="text-align:center;color:var(--blue);margin:4px 0;">▼</div>
+<div style="text-align:center;">
+  <span style="background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);border-radius:8px;padding:6px 16px;display:inline-block;color:#fb923c;font-size:0.85rem;">✍️ REPORT WRITER</span>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3673,10 +3966,7 @@ Five specialist sub-agents collaborate in a hierarchical structure to perform de
 elif page == "research_problems":
     st.markdown('<span class="research-badge">SECTION 3 — RESEARCH PLATFORM</span>', unsafe_allow_html=True)
     st.title("🔭 SAAP Research Platform — Organisational AI Agent Systems")
-    st.markdown("""
-**Enterprise-scale research** on autonomous multi-agent systems for organisational automation.
-All interactive components use **real Groq API calls** where marked 🔴 LIVE.
-""")
+    st.markdown('<p style="color:var(--text2);margin-top:-8px;">Enterprise-scale research on autonomous multi-agent systems for organisational automation. Interactive components marked <span style="color:#f87171;font-weight:600;">🔴 LIVE</span> use real Groq API calls.</p>', unsafe_allow_html=True)
 
     s3_tabs = st.tabs([
         "📍 Research Position",
@@ -5343,36 +5633,26 @@ Use professional, PhD-level terminology throughout. Always reference names, numb
 if page == "live_hub":
 
     st.markdown("""<style>
-/* ── Section 5 Theme ─────────────────────────────────────────── */
-.hub-hero { background: linear-gradient(135deg,#020c02,#061a06,#020c02);
-            border:1px solid #16a34a55; border-radius:20px; padding:32px; margin-bottom:28px; }
-.login-card { background:#0a140a; border:1px solid #16a34a88; border-radius:16px;
-              padding:32px; max-width:460px; margin:40px auto; }
-.member-avatar { width:42px; height:42px; border-radius:50%; display:inline-flex;
-                 align-items:center; justify-content:center; font-weight:bold;
-                 font-size:1.1rem; color:#fff; }
-.hub-tab-badge { background:#14532d; color:#4ade80; padding:2px 10px;
-                 border-radius:99px; font-size:0.72rem; font-weight:700; }
-.svc-connected { background:#052e16; border:2px solid #16a34a; border-radius:12px;
-                 padding:16px; margin:8px 0; }
-.svc-disconnected { background:#0f172a; border:1px dashed #334155; border-radius:12px;
-                    padding:16px; margin:8px 0; opacity:0.85; }
-.api-step { background:#0f1f0f; border-left:3px solid #22c55e; border-radius:6px;
-            padding:10px 14px; margin:6px 0; font-size:0.88rem; }
-.kb-entry { background:#0a140a; border-left:3px solid #3b82f6;
-            border-radius:8px; padding:12px 14px; margin:6px 0; }
-.auto-block { background:#0a0f0a; border:1px solid #1e3a1e; border-radius:12px;
-              padding:18px; margin:10px 0; }
-.run-log-line { font-family:monospace; font-size:0.82rem; padding:3px 0; color:#94a3b8; }
+/* ── Section 5 Overrides (leverages global CSS vars) ──────── */
+.hub-tab-badge { background:rgba(34,197,94,0.12); color:#4ade80; padding:4px 14px; border-radius:99px;
+                 font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
+                 border:1px solid rgba(34,197,94,0.3); }
+.svc-connected { background:rgba(34,197,94,0.07); border:2px solid rgba(34,197,94,0.35); border-radius:14px;
+                 padding:18px; margin:10px 0; transition:all 0.2s; }
+.svc-connected:hover { border-color:rgba(34,197,94,0.55); }
+.svc-disconnected { background:var(--surface); border:1px dashed var(--border2); border-radius:14px;
+                    padding:18px; margin:10px 0; opacity:0.8; }
+.verified-badge { background:rgba(34,197,94,0.15); color:#4ade80; padding:2px 10px; border-radius:99px;
+                  font-size:0.74rem; font-weight:700; border:1px solid rgba(34,197,94,0.3); }
+.ai-badge { background:rgba(139,92,246,0.15); color:#a5b4fc; padding:2px 10px; border-radius:99px;
+            font-size:0.74rem; border:1px solid rgba(139,92,246,0.3); }
+.run-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; margin:8px 0; }
+.run-log-line { font-family:'JetBrains Mono',monospace; font-size:0.8rem; padding:3px 0; color:var(--text2); }
 .run-log-real { color:#4ade80 !important; font-weight:600; }
 .run-log-error { color:#f87171 !important; }
-.verified-badge { background:#14532d; color:#4ade80; padding:1px 8px; border-radius:99px;
-                  font-size:0.75rem; font-weight:700; }
-.ai-badge { background:#1e1b4b; color:#a5b4fc; padding:1px 8px; border-radius:99px;
-            font-size:0.75rem; }
-.run-card { background:#050d05; border:1px solid #1e3a1e; border-radius:10px; padding:16px; margin:8px 0; }
-.member-chip { background:#0f172a; border:1px solid #1e3a5f; border-radius:8px;
-               padding:10px 14px; margin:4px; display:inline-block; }
+.auto-block { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+              padding:20px; margin:10px 0; transition:border-color 0.2s; }
+.auto-block:hover { border-color:var(--border2); }
 </style>""", unsafe_allow_html=True)
 
     # ── SESSION STATE ─────────────────────────────────────────────────────────
@@ -5388,9 +5668,13 @@ if page == "live_hub":
 
         st.markdown("""
 <div class="hub-hero">
-<h1 style="color:#4ade80;margin:0;font-size:2.2rem;">⚡ Live Agent Hub</h1>
-<p style="color:#86efac;margin:10px 0 4px 0;font-size:1.1rem;">Real API connections · Live data fetch · Org knowledge database · Real automations</p>
-<p style="color:#6b7280;margin:0;font-size:0.9rem;">Sign in with your organisation account to access the Hub</p>
+  <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:99px;padding:5px 16px;margin-bottom:16px;">
+    <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
+    <span style="color:#86efac;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">LIVE SYSTEM ACTIVE</span>
+  </div>
+  <h1 style="color:#4ade80;margin:0 0 10px;font-size:2.6rem;font-weight:800;font-family:'Syne',sans-serif;letter-spacing:-0.03em;">⚡ Live Agent Hub</h1>
+  <p style="color:#86efac;margin:0 0 8px;font-size:1rem;font-weight:500;">Real API connections · Live data fetch · Org knowledge database · Automated workflows</p>
+  <p style="color:var(--text3);margin:0;font-size:0.87rem;">Sign in with your organisation account to access the Hub</p>
 </div>
 """, unsafe_allow_html=True)
 
