@@ -6374,6 +6374,7 @@ making automation outputs specific to YOUR organisation instead of generic AI re
             st.info("No runs recorded yet.")
         else:
             with st.expander("📊 Run Analytics Summary", expanded=True):
+                import pandas as pd
                 summary_rows = []
                 for r in filtered_runs:
                     tu = json.loads(r.get("token_usage", "{}"))
@@ -6582,27 +6583,50 @@ making automation outputs specific to YOUR organisation instead of generic AI re
             except Exception as e:
                 st.info(f"Audit log not available: {e}")
 
-if page == "omega_agent":
-    # --- SECTION 6: OMEGA AGENT (The 50+ Agent Platform) ---
-    import os
-    st.markdown('<div class="live-badge" style="margin-bottom:12px;">Ω SECTION 7 — OMEGA AGENT (v5.5)</div>', unsafe_allow_html=True)
-    
+# ════════════════════════════════════════════════════════════════
+#  HELPER: Build Omega HTML (must be defined before page routing)
+# ════════════════════════════════════════════════════════════════
+
 def build_omega_html(groq_key: str) -> str:
+    """Load omega_agent.html and inject the Groq API key at runtime."""
     path = "omega_agent.html"
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 html = f.read()
             if groq_key:
-                # Inject the key into the window object for global access within the React script
-                html = html.replace('<script type="text/babel">', 
-                                  f'<script type="text/babel">
-        window.INJECTED_GROQ_KEY = "{groq_key}";')
+                # Inject the key into the window object using safe string concat
+                inject_str = (
+                    '<script type="text/babel">\n'
+                    '        window.INJECTED_GROQ_KEY = "' + groq_key + '";'
+                )
+                html = html.replace('<script type="text/babel">', inject_str)
             return html
         except Exception as e:
             return f"<h3>Error loading omega_agent.html: {str(e)}</h3>"
-    return "<h3>omega_agent.html not found</h3>"
+    return "<h3>omega_agent.html not found — place it in the same folder as app.py</h3>"
 
+
+# ════════════════════════════════════════════════════════════════
+#  SECTION 7 — OMEGA AGENT PAGE
+# ════════════════════════════════════════════════════════════════
+
+if page == "omega_agent":
+    import streamlit.components.v1 as components
+    st.markdown(
+        '<div class="live-badge" style="margin-bottom:12px;">'
+        'Ω SECTION 7 — OMEGA AGENT (v5.5)</div>',
+        unsafe_allow_html=True
+    )
+    st.title("Ω Omega Agent — 80+ Capability Collective")
+    groq_from_sidebar = api_key or ""
+    omega_html = build_omega_html(groq_from_sidebar)
+    components.html(omega_html, height=950, scrolling=True)
+
+
+# ════════════════════════════════════════════════════════════════
+#  DOCUMENTATION PAGE
+# ════════════════════════════════════════════════════════════════
 
 if page == "documentation":
     render_section_6_docs()
