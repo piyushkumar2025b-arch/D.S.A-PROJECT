@@ -7,7 +7,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide-react"></script>
+    <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.js"></script>
     <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -65,6 +65,7 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        const actualLucide = window.LucideReact || window.lucideReact || window.lucide || {};
         const { 
             Settings, Play, Terminal, Database, Cpu, 
             LayoutGrid, Zap, Activity, ShieldAlert, 
@@ -72,12 +73,13 @@
             Search, Github, Slack, Mail, Calendar, Layers,
             Database: DatabaseIcon, Globe, FileSpreadsheet, List,
             Briefcase, Share2, AlertTriangle, CheckCircle2, Info
-        } = lucideReact;
+        } = actualLucide;
 
+        const actualRecharts = window.Recharts || {};
         const { 
             LineChart, Line, XAxis, YAxis, CartesianGrid, 
             Tooltip, ResponsiveContainer, AreaChart, Area 
-        } = Recharts;
+        } = actualRecharts;
 
         // --- CONFIGURATION ---
         const AGENT_LIBRARY = [

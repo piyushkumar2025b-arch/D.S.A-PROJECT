@@ -2031,7 +2031,7 @@ with st.sidebar:
         "🚧 Section 3 — Research Problems",
         "🏢 Section 4 — Real Org Mode",
         "⚡ Section 5 — LIVE AGENT HUB",
-        "📖 Section 6 — Documentation",
+        "⚙️ Section 6 — n8n Real Simulation",
         "Ω Section 7 — Omega Agent",
     ], label_visibility="collapsed")
 
@@ -2055,12 +2055,12 @@ with st.sidebar:
         st.sidebar.caption("🆕 Real API Integration")
     elif "⚡" in section:
         page = "live_hub"
-    elif "📖" in section:
-        page = "documentation"
+    elif "⚙️" in section:
+        page = "n8n_simulation"
     elif "Ω" in section:
         page = "omega_agent"
     else:
-        page = "documentation"
+        page = "n8n_simulation"
 
     st.divider()
     tasks_all = get_tasks(200)
@@ -6625,8 +6625,22 @@ if page == "omega_agent":
 
 
 # ════════════════════════════════════════════════════════════════
-#  DOCUMENTATION PAGE
+#  n8n REAL SIMULATION PAGE
 # ════════════════════════════════════════════════════════════════
 
-if page == "documentation":
-    render_section_6_docs()
+if page == "n8n_simulation":
+    import streamlit.components.v1 as components
+    st.markdown(
+        '<div class="live-badge" style="margin-bottom:12px;">'
+        '⚙️ SECTION 6 — n8n REAL SIMULATION</div>',
+        unsafe_allow_html=True
+    )
+    st.title("⚙️ SAAP n8n-Style Agent Hub")
+    
+    path = "n8n_platform.html"
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            n8n_html = f.read()
+        components.html(n8n_html, height=950, scrolling=True)
+    else:
+        st.error("n8n_platform.html not found.")
