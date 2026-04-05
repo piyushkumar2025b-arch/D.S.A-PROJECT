@@ -1,476 +1,593 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAAP n8n-Style Agent Hub</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide-react/dist/umd/lucide-react.js"></script>
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #030712;
-            color: #e5e7eb;
-            overflow: hidden;
-            height: 100vh;
-        }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SAAP n8n Real Simulation</title>
+<style>
+:root{--bg:#060b18;--bg2:#0b1225;--surface:#0f1a30;--surface2:#152035;--border:#1e3350;--border2:#253d5c;--blue:#3b82f6;--cyan:#06b6d4;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--orange:#f97316;--text:#f0f4ff;--text2:#94a8c8;--text3:#5a7090;--radius:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+#header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+#header h1{font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-0.01em;}
+.badge{background:rgba(59,130,246,.15);color:#60a5fa;padding:3px 10px;border-radius:99px;font-size:.7rem;font-weight:700;border:1px solid rgba(59,130,246,.3);text-transform:uppercase;}
+.badge.live{background:rgba(34,197,94,.12);color:#4ade80;border-color:rgba(34,197,94,.3);}
+#toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;}
+.btn{background:var(--surface2);border:1px solid var(--border2);color:var(--text2);padding:5px 12px;border-radius:6px;font-size:.78rem;cursor:pointer;transition:all .15s;font-weight:500;}
+.btn:hover{border-color:var(--blue);color:var(--text);background:var(--border);}
+.btn.primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;color:#fff;font-weight:600;}
+.btn.primary:hover{background:linear-gradient(135deg,#2563eb,#3b82f6);}
+.btn.success{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:#4ade80;}
+.btn.danger{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#f87171;}
+.sep{width:1px;height:22px;background:var(--border);margin:0 4px;}
+#main{display:flex;flex:1;overflow:hidden;}
+#sidebar{width:200px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;}
+#sidebar-title{padding:10px 12px 6px;font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-weight:700;}
+.node-palette-item{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:grab;border-bottom:1px solid rgba(30,51,80,.5);font-size:.8rem;color:var(--text2);transition:all .15s;user-select:none;}
+.node-palette-item:hover{background:var(--surface);color:var(--text);}
+.node-palette-item .icon{font-size:1rem;}
+#canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg);}
+#canvas-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(30,51,80,.6) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;}
+#canvas{position:absolute;width:4000px;height:3000px;cursor:default;}
+#status-bar{background:var(--bg2);border-top:1px solid var(--border);padding:6px 14px;font-size:.72rem;color:var(--text3);display:flex;align-items:center;gap:16px;flex-shrink:0;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block;margin-right:4px;}
 
-        .canvas-grid {
-            background-image: radial-gradient(#1f2937 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
+/* Nodes */
+.wf-node{position:absolute;width:160px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);cursor:move;user-select:none;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:border-color .15s,box-shadow .15s;z-index:10;}
+.wf-node:hover{border-color:var(--border2);box-shadow:0 6px 28px rgba(0,0,0,.5);}
+.wf-node.selected{border-color:var(--blue)!important;box-shadow:0 0 0 2px rgba(59,130,246,.25),0 6px 28px rgba(0,0,0,.5);}
+.wf-node.running{border-color:var(--amber)!important;box-shadow:0 0 12px rgba(245,158,11,.25);}
+.wf-node.done{border-color:var(--green)!important;box-shadow:0 0 10px rgba(34,197,94,.15);}
+.wf-node.error{border-color:var(--red)!important;}
+.node-header{padding:8px 10px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border);}
+.node-header .icon{font-size:1rem;}
+.node-header .label{font-size:.78rem;font-weight:600;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.node-header .status{font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:99px;text-transform:uppercase;}
+.status-idle{background:rgba(90,112,144,.15);color:var(--text3);}
+.status-run{background:rgba(245,158,11,.15);color:var(--amber);animation:pulse-text 1s infinite;}
+.status-ok{background:rgba(34,197,94,.12);color:#4ade80;}
+.status-fail{background:rgba(239,68,68,.1);color:#f87171;}
+@keyframes pulse-text{0%,100%{opacity:1;}50%{opacity:.5;}}
+.node-body{padding:7px 10px;font-size:.72rem;color:var(--text2);}
+.node-port{position:absolute;width:12px;height:12px;background:var(--surface2);border:2px solid var(--border2);border-radius:50%;cursor:crosshair;z-index:20;transition:all .15s;}
+.node-port:hover{background:var(--blue);border-color:var(--blue);transform:scale(1.3);}
+.port-in{left:-6px;top:50%;transform:translateY(-50%);}
+.port-out{right:-6px;top:50%;transform:translateY(-50%);}
 
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
+/* SVG Edges */
+#edge-svg{position:absolute;inset:0;pointer-events:none;overflow:visible;}
+.edge-path{stroke:var(--border2);stroke-width:2;fill:none;transition:stroke .15s;}
+.edge-path.active{stroke:var(--blue);}
+.edge-path.done{stroke:var(--green);}
 
-        @keyframes pulse-yellow {
-            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
-        }
-        .running-node {
-            animation: pulse-yellow 2s infinite;
-        }
-        
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
+/* Run log panel */
+#log-panel{position:absolute;right:10px;top:10px;width:300px;max-height:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);z-index:100;display:none;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.5);}
+#log-panel.show{display:flex;}
+#log-header{padding:8px 12px;border-bottom:1px solid var(--border);font-size:.78rem;font-weight:700;color:var(--text);display:flex;justify-content:space-between;}
+#log-body{flex:1;overflow-y:auto;padding:8px 10px;font-size:.72rem;color:var(--text2);font-family:'JetBrains Mono',monospace;}
+.log-line{padding:2px 0;border-bottom:1px solid rgba(30,51,80,.3);}
+.log-line.ok{color:#4ade80;}
+.log-line.err{color:#f87171;}
+.log-line.info{color:#60a5fa;}
 
-        .no-select {
-            user-select: none;
-        }
-    </style>
+/* Inspector */
+#inspector{position:absolute;left:210px;bottom:10px;width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;z-index:90;display:none;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+#inspector.show{display:block;}
+#inspector h4{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px;}
+.insp-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(30,51,80,.3);font-size:.75rem;}
+.insp-row .k{color:var(--text3);}
+.insp-row .v{color:var(--text);}
+
+/* Template chooser */
+#templates{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+.tpl-btn{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);color:#c084fc;padding:4px 10px;border-radius:6px;font-size:.72rem;cursor:pointer;transition:all .15s;}
+.tpl-btn:hover{background:rgba(139,92,246,.15);border-color:var(--purple);}
+
+select.btn{appearance:none;padding-right:22px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a7090'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;}
+</style>
 </head>
 <body>
-    <div id="root"></div>
+<div id="header">
+  <span style="font-size:1.3rem;">⚙️</span>
+  <h1>SAAP n8n-Style Agent Workflow Builder</h1>
+  <span class="badge live">LIVE</span>
+  <span class="badge">SECTION 6</span>
+  <span style="margin-left:auto;font-size:.75rem;color:var(--text3);">Visual Agent Orchestration · Drag & Drop · Real Execution</span>
+</div>
+<div id="toolbar">
+  <button class="btn primary" onclick="runWorkflow()">▶ Run Workflow</button>
+  <button class="btn success" onclick="saveWorkflow()">💾 Save</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="clearCanvas()">🗑 Clear</button>
+  <button class="btn" onclick="toggleLog()">📋 Log</button>
+  <button class="btn" onclick="zoomIn()">＋</button>
+  <button class="btn" onclick="zoomOut()">－</button>
+  <button class="btn" onclick="zoomReset()">⊡ Fit</button>
+  <div class="sep"></div>
+  <div id="templates">
+    <span style="font-size:.72rem;color:var(--text3);align-self:center;">Templates:</span>
+    <button class="tpl-btn" onclick="loadTemplate('daily')">📅 Daily Digest</button>
+    <button class="tpl-btn" onclick="loadTemplate('research')">🔬 Research Run</button>
+    <button class="tpl-btn" onclick="loadTemplate('crm')">🏢 CRM Pipeline</button>
+    <button class="tpl-btn" onclick="loadTemplate('devops')">🐙 DevOps Sync</button>
+  </div>
+  <div class="sep"></div>
+  <select class="btn" id="model-select">
+    <option value="llama-3.3-70b-versatile">llama-3.3-70b</option>
+    <option value="mixtral-8x7b-32768">mixtral-8x7b</option>
+    <option value="gemma2-9b-it">gemma2-9b</option>
+  </select>
+</div>
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-title">Agent Nodes</div>
+    <div class="node-palette-item" draggable="true" data-type="trigger" data-icon="⚡" data-label="Trigger" ondragstart="paletteDrag(event)">
+      <span class="icon">⚡</span>Trigger
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="gmail-summary" data-icon="📧" data-label="Gmail Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">📧</span>Gmail Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="calendar-manager" data-icon="📅" data-label="Calendar" ondragstart="paletteDrag(event)">
+      <span class="icon">📅</span>Calendar
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="drive-manager" data-icon="📁" data-label="Drive Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">📁</span>Drive Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="slack-agent" data-icon="💬" data-label="Slack Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">💬</span>Slack Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="github-agent" data-icon="🐙" data-label="GitHub Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">🐙</span>GitHub Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="sheets-agent" data-icon="📊" data-label="Sheets Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">📊</span>Sheets Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="notion-agent" data-icon="📝" data-label="Notion Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">📝</span>Notion Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="web-scraper" data-icon="🌐" data-label="Web Scraper" ondragstart="paletteDrag(event)">
+      <span class="icon">🌐</span>Web Scraper
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="jira-agent" data-icon="🎯" data-label="Jira Agent" ondragstart="paletteDrag(event)">
+      <span class="icon">🎯</span>Jira Agent
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="hubspot-agent" data-icon="🏢" data-label="HubSpot CRM" ondragstart="paletteDrag(event)">
+      <span class="icon">🏢</span>HubSpot CRM
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="linear-agent" data-icon="🔷" data-label="Linear" ondragstart="paletteDrag(event)">
+      <span class="icon">🔷</span>Linear
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="airtable-agent" data-icon="🗃️" data-label="Airtable" ondragstart="paletteDrag(event)">
+      <span class="icon">🗃️</span>Airtable
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="synthesizer" data-icon="🧠" data-label="Synthesizer" ondragstart="paletteDrag(event)">
+      <span class="icon">🧠</span>Synthesizer
+    </div>
+    <div class="node-palette-item" draggable="true" data-type="output" data-icon="📤" data-label="Output" ondragstart="paletteDrag(event)">
+      <span class="icon">📤</span>Output
+    </div>
+  </div>
+  <div id="canvas-wrap" ondragover="event.preventDefault()" ondrop="canvasDrop(event)">
+    <div id="canvas-grid"></div>
+    <svg id="edge-svg"></svg>
+    <div id="canvas"></div>
+    <div id="log-panel">
+      <div id="log-header"><span>📋 Execution Log</span><span style="cursor:pointer;color:var(--text3);" onclick="toggleLog()">✕</span></div>
+      <div id="log-body"></div>
+    </div>
+    <div id="inspector">
+      <h4 id="insp-title">Node Inspector</h4>
+      <div id="insp-content"></div>
+    </div>
+  </div>
+</div>
+<div id="status-bar">
+  <span><span class="status-dot"></span> Ready</span>
+  <span id="sb-nodes">Nodes: 0</span>
+  <span id="sb-edges">Edges: 0</span>
+  <span id="sb-status">No workflow running</span>
+  <span id="sb-tokens" style="margin-left:auto;"></span>
+</div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback, useMemo } = React;
-        const actualLucide = window.LucideReact || window.lucideReact || window.lucide || {};
-        const { 
-            Settings, Play, Terminal, Database, Cpu, 
-            LayoutGrid, Zap, Activity, ShieldAlert, 
-            FileText, Download, Trash2, X, Plus, ChevronRight,
-            Search, Github, Slack, Mail, Calendar, Layers,
-            Database: DatabaseIcon, Globe, FileSpreadsheet, List,
-            Briefcase, Share2, AlertTriangle, CheckCircle2, Info
-        } = actualLucide;
+<script>
+const GROQ_KEY = window.INJECTED_GROQ_KEY || window.parent?.GROQ_KEY || '';
 
-        const actualRecharts = window.Recharts || {};
-        const { 
-            LineChart, Line, XAxis, YAxis, CartesianGrid, 
-            Tooltip, ResponsiveContainer, AreaChart, Area 
-        } = actualRecharts;
+const AGENT_DESCRIPTIONS = {
+  'trigger': 'Starts the workflow execution',
+  'gmail-summary': 'Fetch & summarise Gmail inbox',
+  'calendar-manager': 'Manage Google Calendar events',
+  'drive-manager': 'Organise Google Drive files',
+  'slack-agent': 'Slack channel operations',
+  'github-agent': 'GitHub PR & issue digest',
+  'sheets-agent': 'Google Sheets reporting',
+  'notion-agent': 'Notion page management',
+  'web-scraper': 'Web data extraction',
+  'jira-agent': 'Jira project tracking',
+  'hubspot-agent': 'HubSpot CRM operations',
+  'linear-agent': 'Linear issue tracking',
+  'airtable-agent': 'Airtable database ops',
+  'synthesizer': 'Synthesize all agent outputs',
+  'output': 'Display final results',
+};
 
-        // --- CONFIGURATION ---
-        const AGENT_LIBRARY = [
-            { 
-                id: 'gmail-agent', name: 'Gmail Agent', category: 'Google Workspace', icon: <Mail size={16}/>, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
-                prompt: `Return ONLY valid JSON: {"emails": [{"id":"1","from":"CEO","subject":"Q4 Goals","summary":"Review the Q4 targets."}], "total_unread": 5}`
-            },
-            { 
-                id: 'calendar-agent', name: 'Calendar Agent', category: 'Google Workspace', icon: <Calendar size={16}/>, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
-                prompt: `Return ONLY valid JSON: {"events": [{"id":"1","title":"Board Meeting","start":"10:00 AM"}], "availability_score": 85}`
-            },
-            { 
-                id: 'github-agent', name: 'GitHub Agent', category: 'Dev Tools', icon: <Github size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
-                prompt: `Return ONLY valid JSON: {"open_prs": [{"id":101,"title":"Refactor UI","author":"dev_alpha","risk":"low"}], "ci_status":"passing"}`
-            },
-            { 
-                id: 'slack-agent', name: 'Slack Agent', category: 'Dev Tools', icon: <Slack size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
-                prompt: `Return ONLY valid JSON: {"trending_topics": [{"topic":"Infrastructure","sentiment":"neu","volume":12}], "team_pulse":"stable"}`
-            },
-            { 
-                id: 'hubspot-agent', name: 'HubSpot Agent', category: 'CRM', icon: <Briefcase size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
-                prompt: `Return ONLY valid JSON: {"active_deals": [{"name":"Project Titan","val":50000,"stage":"Closing"}], "pipeline_value":240000}`
-            },
-            { 
-                id: 'jira-agent', name: 'Jira Agent', category: 'CRM', icon: <Layers size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
-                prompt: `Return ONLY valid JSON: {"sprint_progress": 72, "blockers": [{"id":"T-102","desc":"DB latency"}]}`
-            },
-            { 
-                id: 'notion-agent', name: 'Notion Agent', category: 'CRM', icon: <FileText size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
-                prompt: `Return ONLY valid JSON: {"recent_updates": [{"page":"Product Roadmap","editor":"PM_Jane"}], "missing_docs":["API Sec"]}`
-            },
-            { 
-                id: 'web-scraper', name: 'Web Scraper', category: 'Web', icon: <Globe size={16}/>, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20',
-                prompt: `Return ONLY valid JSON: {"scraped_data": [{"url":"competitor.com","content_summary":"Launching V2 next month"}]}`
-            },
-            { 
-                id: 'sheets-agent', name: 'Sheets Agent', category: 'Analytics', icon: <FileSpreadsheet size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
-                prompt: `Return ONLY valid JSON: {"metrics": [{"name":"ROI","value":4.2,"change":0.5}], "anomalies":[]}`
-            },
-            { 
-                id: 'airtable-agent', name: 'Airtable Agent', category: 'Analytics', icon: <DatabaseIcon size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
-                prompt: `Return ONLY valid JSON: {"table_summaries": [{"table":"Leads","count":1240}], "schema_health":"nominal"}`
-            },
-            { 
-                id: 'linear-agent', name: 'Linear Agent', category: 'Dev Tools', icon: <List size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
-                prompt: `Return ONLY valid JSON: {"cycle_velocity": 42.5, "high_priority_issues": [{"id":"ENG-12","title":"Auth Leak"}]}`
-            },
-            { 
-                id: 'synthesizer-agent', name: 'Synthesizer', category: 'AI', icon: <Cpu size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
-                prompt: `Return ONLY valid JSON: {"executive_summary": "Overall health is good with minor blockers in infrastructure.", "action_items":["Resolve DB latency"]}`
-            },
-        ];
+let nodes = [], edges = [], selectedNode = null;
+let scale = 1, panX = 0, panY = 0;
+let draggingEdge = null, dragFromPort = null;
+let isPanning = false, panStart = null;
+let nodeIdCounter = 0;
 
-        // --- COMPONENTS ---
+const canvas = document.getElementById('canvas');
+const edgeSvg = document.getElementById('edge-svg');
+const canvasWrap = document.getElementById('canvas-wrap');
 
-        const Modal = ({ children, isOpen, onClose, title }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-semibold text-white">{title}</h2>
-                            {onClose && <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={20}/></button>}
-                        </div>
-                        {children}
-                    </div>
-                </div>
-            );
-        };
+// ─── Pan & Zoom ───
+let scaleTarget = 1, transX = 40, transY = 40;
+function applyTransform(){
+  canvas.style.transform = `translate(${transX}px,${transY}px) scale(${scaleTarget})`;
+  canvas.style.transformOrigin = '0 0';
+  edgeSvg.style.transform = canvas.style.transform;
+  edgeSvg.style.transformOrigin = '0 0';
+}
+function zoomIn(){ scaleTarget = Math.min(2, scaleTarget+0.1); applyTransform(); }
+function zoomOut(){ scaleTarget = Math.max(0.3, scaleTarget-0.1); applyTransform(); }
+function zoomReset(){ scaleTarget=1; transX=40; transY=40; applyTransform(); }
+canvasWrap.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.08 : 0.93;
+  scaleTarget = Math.max(0.3, Math.min(2, scaleTarget * factor));
+  applyTransform();
+},{passive:false});
+let panStartX, panStartY, panStartTX, panStartTY;
+canvasWrap.addEventListener('mousedown', e=>{
+  if(e.target === canvasWrap || e.target.id === 'canvas-grid'){
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartTX = transX; panStartTY = transY;
+    canvasWrap.style.cursor = 'grabbing';
+  }
+});
+window.addEventListener('mousemove', e=>{
+  if(isPanning){ transX = panStartTX+(e.clientX-panStartX); transY = panStartTY+(e.clientY-panStartY); applyTransform(); }
+  if(draggingEdge){ updateTempEdge(e); }
+});
+window.addEventListener('mouseup', ()=>{ isPanning=false; canvasWrap.style.cursor=''; if(draggingEdge){ cancelTempEdge(); } });
 
-        const Node = ({ node, onDragStart, onPortMouseDown, onPortMouseUp, isSelected, onClick }) => {
-            const agent = AGENT_LIBRARY.find(a => a.id === node.type);
-            return (
-                <div 
-                    className={`absolute z-10 w-48 rounded-xl border p-4 cursor-pointer select-none glass-panel transition-all duration-200 ${
-                        isSelected ? 'ring-2 ring-blue-500 border-blue-500/50 shadow-blue-900/20 shadow-xl' : 'border-gray-800'
-                    } ${node.status === 'running' ? 'running-node' : ''}`}
-                    style={{ left: node.position.x, top: node.position.y }}
-                    onMouseDown={(e) => { e.stopPropagation(); onDragStart(e, node.id); }}
-                    onClick={(e) => { e.stopPropagation(); onClick(node.id); }}
-                >
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className={`p-2 rounded-lg ${agent?.bg} ${agent?.color}`}>
-                            {agent?.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-bold text-white truncate">{agent?.name}</p>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-mono">{node.id.split('-')[1].substring(0,4)}</p>
-                        </div>
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${
-                            node.status === 'done' ? 'bg-green-500' : 
-                            node.status === 'running' ? 'bg-yellow-500' : 
-                            node.status === 'error' ? 'bg-red-500' : 'bg-gray-700'
-                        }`}></div>
-                    </div>
-                    {/* Ports */}
-                    <div 
-                        className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-800 border border-gray-600 hover:bg-blue-500 hover:scale-125 transition-all cursor-crosshair z-20"
-                        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, node.id, 'input'); }}
-                        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(node.id, 'input'); }}
-                    ></div>
-                    <div 
-                        className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-800 border border-gray-600 hover:bg-blue-500 hover:scale-125 transition-all cursor-crosshair z-20"
-                        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, node.id, 'output'); }}
-                        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(node.id, 'output'); }}
-                    ></div>
-                </div>
-            );
-        };
+// ─── Palette Drag ───
+let paletteDragData = null;
+function paletteDrag(e){
+  paletteDragData = { type: e.target.dataset.type, icon: e.target.dataset.icon, label: e.target.dataset.label };
+}
+function canvasDrop(e){
+  e.preventDefault();
+  if(!paletteDragData) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const x = (e.clientX - rect.left - transX) / scaleTarget;
+  const y = (e.clientY - rect.top - transY) / scaleTarget;
+  addNode(paletteDragData.type, paletteDragData.icon, paletteDragData.label, x, y);
+  paletteDragData = null;
+}
 
-        const Edge = ({ edge, nodes, isIssue }) => {
-            const source = nodes.find(n => n.id === edge.source);
-            const target = nodes.find(n => n.id === edge.target);
-            if (!source || !target) return null;
-            const x1 = source.position.x + 192;
-            const y1 = source.position.y + 42;
-            const x2 = target.position.x;
-            const y2 = target.position.y + 42;
-            const dx = Math.abs(x1 - x2) * 0.5;
-            const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-            return (
-                <path d={path} fill="none" stroke={isIssue ? "#eab308" : "#374151"} strokeWidth="2" strokeDasharray={isIssue ? "4 4" : "0"} className="transition-all duration-300" />
-            );
-        };
+// ─── Add Node ───
+function addNode(type, icon, label, x, y, extra={}){
+  const id = 'n'+(++nodeIdCounter);
+  const node = { id, type, icon, label, x, y, status:'idle', result:null, ...extra };
+  nodes.push(node);
+  renderNode(node);
+  updateStats();
+  return id;
+}
 
-        const App = () => {
-            // --- STATE ---
-            const [apiKey, setApiKey] = useState("");
-            const [showKeyModal, setShowKeyModal] = useState(true);
-            const [nodes, setNodes] = useState([]);
-            const [edges, setEdges] = useState([]);
-            const [running, setRunning] = useState(false);
-            const [logs, setLogs] = useState([]);
-            const [tokens, setTokens] = useState({ in: 0, out: 0, calls: 0 });
-            const [goal, setGoal] = useState("");
-            const [selectedNodeId, setSelectedNodeId] = useState(null);
-            const [issues, setIssues] = useState([]);
-            const [report, setReport] = useState("");
-            
-            // Canvas Interactions
-            const [draggingId, setDraggingId] = useState(null);
-            const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-            const [connecting, setConnecting] = useState(null); // {nodeId, type}
-            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-            const canvasRef = useRef(null);
+function renderNode(node){
+  const div = document.createElement('div');
+  div.className = 'wf-node';
+  div.id = 'node-'+node.id;
+  div.style.left = node.x+'px';
+  div.style.top = node.y+'px';
+  div.innerHTML = `
+    <div class="node-header">
+      <span class="icon">${node.icon}</span>
+      <span class="label">${node.label}</span>
+      <span class="status status-idle" id="status-${node.id}">idle</span>
+    </div>
+    <div class="node-body" id="body-${node.id}">${AGENT_DESCRIPTIONS[node.type]||'Agent node'}</div>
+    <div class="node-port port-in" id="port-in-${node.id}" onmousedown="portDown(event,'${node.id}','in')"></div>
+    <div class="node-port port-out" id="port-out-${node.id}" onmousedown="portDown(event,'${node.id}','out')"></div>
+  `;
+  div.addEventListener('mousedown', e=>{ if(!e.target.classList.contains('node-port')){ startNodeDrag(e, node.id); }});
+  div.addEventListener('click', e=>{ if(!e.target.classList.contains('node-port')){ selectNode(node.id); }});
+  canvas.appendChild(div);
+}
 
-            const addLog = (msg, type = 'info') => {
-                setLogs(prev => [{ time: new Date().toLocaleTimeString([], { hour12: false }), msg, type }, ...prev].slice(0, 50));
-            };
+function selectNode(id){
+  document.querySelectorAll('.wf-node').forEach(n=>n.classList.remove('selected'));
+  const nd = nodes.find(n=>n.id===id);
+  if(!nd) return;
+  document.getElementById('node-'+id)?.classList.add('selected');
+  selectedNode = id;
+  showInspector(nd);
+}
 
-            // --- LLM ENGINE ---
-            const callLLM = async (system, user) => {
-                const res = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "dangerously-allow-browser": "true" },
-                    body: JSON.stringify({ model: "claude-3-5-sonnet-20240620", max_tokens: 1000, system, messages: [{ role: "user", content: user }] })
-                });
-                const data = await res.json();
-                if (data.error) throw new Error(data.error.message);
-                setTokens(t => ({ in: t.in + data.usage.input_tokens, out: t.out + data.usage.output_tokens, calls: t.calls + 1 }));
-                return JSON.parse(data.content[0].text.replace(/```json|```/g, "").trim());
-            };
+function showInspector(nd){
+  const insp = document.getElementById('inspector');
+  document.getElementById('insp-title').textContent = nd.icon+' '+nd.label;
+  const rows = [
+    ['Type', nd.type],
+    ['Status', nd.status],
+    ['ID', nd.id],
+    nd.result ? ['Result', JSON.stringify(nd.result).slice(0,60)+'...'] : null,
+  ].filter(Boolean);
+  document.getElementById('insp-content').innerHTML = rows.map(([k,v])=>`<div class="insp-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  insp.classList.add('show');
+}
 
-            const getExecutionOrder = () => {
-                const adj = {}; const inDegree = {}; nodes.forEach(n => { adj[n.id] = []; inDegree[n.id] = 0; });
-                edges.forEach(e => { adj[e.source].push(e.target); inDegree[e.target]++; });
-                const queue = nodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
-                const order = [];
-                while (queue.length > 0) {
-                    const u = queue.shift(); order.push(u);
-                    adj[u].forEach(v => { inDegree[v]--; if (inDegree[v] === 0) queue.push(v); });
-                }
-                return order;
-            };
+// ─── Node Drag ───
+let dragState = null;
+function startNodeDrag(e, id){
+  const nd = nodes.find(n=>n.id===id);
+  if(!nd) return;
+  const rect = document.getElementById('node-'+id).getBoundingClientRect();
+  dragState = { id, startX: e.clientX, startY: e.clientY, origX: nd.x, origY: nd.y };
+  e.preventDefault();
+}
+window.addEventListener('mousemove', e=>{
+  if(!dragState) return;
+  const nd = nodes.find(n=>n.id===dragState.id);
+  if(!nd) return;
+  nd.x = dragState.origX + (e.clientX - dragState.startX)/scaleTarget;
+  nd.y = dragState.origY + (e.clientY - dragState.startY)/scaleTarget;
+  const el = document.getElementById('node-'+nd.id);
+  if(el){ el.style.left = nd.x+'px'; el.style.top = nd.y+'px'; }
+  renderEdges();
+});
+window.addEventListener('mouseup', ()=>{ dragState = null; });
 
-            const runWorkflow = async () => {
-                if (!apiKey || nodes.length === 0) return;
-                setRunning(true); setLogs([]); setReport("");
-                addLog(`🚀 Starting Intelligence Loop: "${goal || "System Health Check"}"`, "info");
-                try {
-                    const order = getExecutionOrder();
-                    let context = "";
-                    for (const id of order) {
-                        const node = nodes.find(n => n.id === id);
-                        if (!node) continue;
-                        const agent = AGENT_LIBRARY.find(a => a.id === node.type);
-                        setNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'running' } : n));
-                        addLog(`Executing ${agent.name}...`, "agent");
-                        const result = await callLLM(agent.prompt, `Context: ${context}\nObjective: ${goal}`);
-                        setNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'done', lastOutput: result } : n));
-                        context += `\n${agent.name} Output: ${JSON.stringify(result)}`;
-                        addLog(`${agent.name} done.`, "success");
-                    }
-                    const sync = AGENT_LIBRARY.find(a => a.id === 'synthesizer-agent');
-                    const rep = await callLLM(sync.prompt, `Summarize this workflow results: ${context}`);
-                    setReport(rep.executive_summary);
-                    addLog("Workflow Complete.", "success");
-                } catch (e) {
-                    addLog(`Error: ${e.message}`, "error");
-                    setNodes(prev => prev.map(n => n.status === 'running' ? { ...n, status: 'error' } : n));
-                } finally { setRunning(false); }
-            };
+// ─── Edges ───
+let tempEdgeLine = null;
+function portDown(e, nodeId, side){
+  e.stopPropagation(); e.preventDefault();
+  if(side === 'out'){
+    dragFromPort = nodeId;
+    draggingEdge = { fromId: nodeId };
+    const svg = edgeSvg;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','path');
+    line.setAttribute('class','edge-path'); line.id = 'temp-edge';
+    svg.appendChild(line); tempEdgeLine = line;
+  } else {
+    if(draggingEdge && dragFromPort && dragFromPort !== nodeId){
+      edges.push({ id:'e'+(edges.length+1), from: dragFromPort, to: nodeId });
+      draggingEdge = null; dragFromPort = null;
+      if(tempEdgeLine){ tempEdgeLine.remove(); tempEdgeLine = null; }
+      renderEdges(); updateStats();
+    }
+  }
+}
+function updateTempEdge(e){
+  if(!tempEdgeLine || !dragFromPort) return;
+  const fromNode = nodes.find(n=>n.id===dragFromPort);
+  if(!fromNode) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const mx = (e.clientX - rect.left - transX)/scaleTarget;
+  const my = (e.clientY - rect.top - transY)/scaleTarget;
+  const fx = fromNode.x + 160, fy = fromNode.y + 40;
+  const d = bezierPath(fx, fy, mx, my);
+  tempEdgeLine.setAttribute('d', d);
+}
+function cancelTempEdge(){
+  if(tempEdgeLine){ tempEdgeLine.remove(); tempEdgeLine = null; }
+  draggingEdge = null; dragFromPort = null;
+}
+function bezierPath(x1,y1,x2,y2){
+  const cp = Math.abs(x2-x1)*0.5;
+  return `M${x1},${y1} C${x1+cp},${y1} ${x2-cp},${y2} ${x2},${y2}`;
+}
+function renderEdges(){
+  edgeSvg.querySelectorAll('.edge-path:not(#temp-edge)').forEach(e=>e.remove());
+  edges.forEach(edge=>{
+    const fn = nodes.find(n=>n.id===edge.from);
+    const tn = nodes.find(n=>n.id===edge.to);
+    if(!fn||!tn) return;
+    const x1 = fn.x+160, y1 = fn.y+40, x2 = tn.x, y2 = tn.y+40;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', bezierPath(x1,y1,x2,y2));
+    path.setAttribute('class','edge-path'+(edge.active?' active':edge.done?' done':''));
+    edgeSvg.appendChild(path);
+  });
+}
+function updateStats(){
+  document.getElementById('sb-nodes').textContent = 'Nodes: '+nodes.length;
+  document.getElementById('sb-edges').textContent = 'Edges: '+edges.length;
+}
+function toggleLog(){ document.getElementById('log-panel').classList.toggle('show'); }
+function addLog(msg, type=''){
+  const lb = document.getElementById('log-body');
+  const d = document.createElement('div');
+  d.className = 'log-line'+( type?' '+type:'');
+  d.textContent = '['+new Date().toLocaleTimeString()+'] '+msg;
+  lb.appendChild(d); lb.scrollTop = lb.scrollHeight;
+}
 
-            // --- CANVAS HANDLERS ---
-            const handleMouseMove = (e) => {
-                const rect = canvasRef.current.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                setMousePos({ x, y });
-                if (draggingId) {
-                    setNodes(prev => prev.map(n => n.id === draggingId ? { ...n, position: { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } } : n));
-                }
-            };
+// ─── Run Workflow ───
+async function runWorkflow(){
+  const key = GROQ_KEY;
+  if(!key){ alert('⚠️ No Groq API key found. Paste your key in the SAAP sidebar.'); return; }
+  if(nodes.length === 0){ alert('Drop some agent nodes onto the canvas first!'); return; }
 
-            const addNode = (type) => {
-                const name = AGENT_LIBRARY.find(a => a.id === type).name;
-                setNodes(prev => [...prev, { id: `${type}-${Date.now()}`, type, status: 'idle', position: { x: 100, y: 100 + prev.length * 40 }, lastOutput: null }]);
-            };
+  document.getElementById('log-panel').classList.add('show');
+  document.getElementById('sb-status').textContent = '⏳ Running...';
+  addLog('Workflow started — '+nodes.length+' nodes', 'info');
 
-            const startPortDrag = (e, nodeId, type) => {
-                setConnecting({ nodeId, type });
-            };
+  // Build execution order from trigger
+  const triggerNode = nodes.find(n=>n.type==='trigger');
+  const ordered = triggerNode ? topologicalSort() : nodes;
+  let prevResult = null;
+  let totalTokens = 0;
 
-            const endPortDrag = (nodeId, type) => {
-                if (connecting && connecting.nodeId !== nodeId && connecting.type !== type) {
-                    const source = connecting.type === 'output' ? connecting.nodeId : nodeId;
-                    const target = connecting.type === 'input' ? connecting.nodeId : nodeId;
-                    if (!edges.find(e => e.source === source && e.target === target)) {
-                        setEdges(prev => [...prev, { source, target }]);
-                    }
-                }
-                setConnecting(null);
-            };
+  for(const nd of ordered){
+    if(nd.type === 'trigger' || nd.type === 'output') continue;
+    setNodeStatus(nd.id, 'running');
+    addLog('Running '+nd.label+'...','info');
+    edges.forEach(e=>{ if(e.to===nd.id){ e.active=true; } }); renderEdges();
 
-            // --- RENDER ---
-            const selectedNode = nodes.find(n => n.id === selectedNodeId);
+    try {
+      const result = await callGroqAgent(key, nd.type, prevResult);
+      nd.result = result;
+      totalTokens += result._tokens || 0;
+      setNodeStatus(nd.id, 'done');
+      edges.forEach(e=>{ if(e.to===nd.id){ e.active=false; e.done=true; } }); renderEdges();
+      addLog('✅ '+nd.label+' complete', 'ok');
+      prevResult = result;
+      document.getElementById('sb-tokens').textContent = '~'+totalTokens+' tokens used';
+    } catch(err){
+      setNodeStatus(nd.id, 'error');
+      addLog('❌ '+nd.label+': '+err.message, 'err');
+    }
+    await sleep(400);
+  }
 
-            return (
-                <div className="flex flex-col h-screen overflow-hidden text-sm selection:bg-blue-500/30">
-                    {/* Header */}
-                    <header className="h-14 border-b border-gray-800 bg-gray-900 flex items-center justify-between px-6 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 p-1.5 rounded-lg"><Cpu size={20} className="text-white"/></div>
-                            <div>
-                                <h1 className="font-bold text-white tracking-tight">SAAP <span className="text-blue-500">n8n-Engine</span></h1>
-                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">Enterprise Agent Orchestrator</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-6">
-                            <div className="flex gap-4 text-xs font-mono">
-                                <div className="text-right"><p className="text-[10px] text-gray-500">TOKENS</p><p className="text-blue-400 capitalize">{(tokens.in + tokens.out).toLocaleString()}</p></div>
-                                <div className="text-right"><p className="text-[10px] text-gray-500">CALLS</p><p className="text-purple-400">{tokens.calls}</p></div>
-                            </div>
-                            <button onClick={() => setShowKeyModal(true)} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-md transition-all">
-                                <Settings size={14}/><span>{apiKey ? "••••••••" : "Set API Key"}</span>
-                            </button>
-                        </div>
-                    </header>
+  // Output node
+  const outNode = nodes.find(n=>n.type==='output');
+  if(outNode){
+    setNodeStatus(outNode.id, 'done');
+    document.getElementById('body-'+outNode.id).textContent = prevResult ? JSON.stringify(prevResult).slice(0,80)+'...' : 'Done';
+  }
+  document.getElementById('sb-status').textContent = '✅ Workflow complete';
+  addLog('Workflow finished', 'ok');
+}
 
-                    <div className="flex flex-1 overflow-hidden">
-                        {/* Library */}
-                        <aside className="w-64 border-r border-gray-800 bg-gray-950 p-4 overflow-y-auto">
-                            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Agent Library</h3>
-                            <div className="space-y-1.5">
-                                {AGENT_LIBRARY.map(agent => (
-                                    <button key={agent.id} onClick={() => addNode(agent.id)} className="w-full flex items-center gap-3 p-2 rounded-lg border border-gray-800/50 hover:border-gray-700 bg-gray-900/30 hover:bg-gray-900 group transition-all text-left">
-                                        <div className={`p-1.5 rounded-md ${agent.bg} ${agent.color}`}>{agent.icon}</div>
-                                        <span className="text-gray-300 text-xs font-medium">{agent.name}</span>
-                                        <Plus size={12} className="ml-auto text-gray-600 group-hover:text-white"/>
-                                    </button>
-                                ))}
-                            </div>
-                        </aside>
+function setNodeStatus(id, status){
+  const el = document.getElementById('node-'+id);
+  if(!el) return;
+  el.classList.remove('running','done','error');
+  const sp = document.getElementById('status-'+id);
+  if(status==='running'){ el.classList.add('running'); if(sp){sp.className='status status-run';sp.textContent='running';} }
+  if(status==='done')   { el.classList.add('done');    if(sp){sp.className='status status-ok'; sp.textContent='done';} }
+  if(status==='error')  { el.classList.add('error');   if(sp){sp.className='status status-fail';sp.textContent='error';} }
+}
 
-                        {/* Canvas */}
-                        <main 
-                            ref={canvasRef}
-                            className="flex-1 relative bg-[#020617] canvas-grid overflow-hidden outline-none cursor-default"
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={() => { setDraggingId(null); setConnecting(null); }}
-                        >
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                                {edges.map((e, i) => <Edge key={i} edge={e} nodes={nodes} />)}
-                                {connecting && (
-                                    <line 
-                                        x1={connecting.type === 'output' ? nodes.find(n => n.id === connecting.nodeId).position.x + 192 : mousePos.x}
-                                        y1={connecting.type === 'output' ? nodes.find(n => n.id === connecting.nodeId).position.y + 42 : mousePos.y}
-                                        x2={connecting.type === 'input' ? nodes.find(n => n.id === connecting.nodeId).position.x : mousePos.x}
-                                        y2={connecting.type === 'input' ? nodes.find(n => n.id === connecting.nodeId).position.y + 42 : mousePos.y}
-                                        stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 4"
-                                    />
-                                )}
-                            </svg>
-                            {nodes.map(node => (
-                                <Node 
-                                    key={node.id} 
-                                    node={node} 
-                                    isSelected={selectedNodeId === node.id}
-                                    onClick={setSelectedNodeId}
-                                    onDragStart={(e, id) => { setDraggingId(id); setDragOffset({ x: e.clientX - nodes.find(n => n.id === id).position.x, y: e.clientY - nodes.find(n => n.id === id).position.y }); }}
-                                    onPortMouseDown={startPortDrag}
-                                    onPortMouseUp={endPortDrag}
-                                />
-                            ))}
-                            
-                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 flex gap-2">
-                                <input type="text" value={goal} onChange={e => setGoal(e.target.value)} placeholder="System Objective..." className="flex-1 bg-gray-900 border border-gray-700/50 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500/50 text-white shadow-2xl transition-all"/>
-                                <button onClick={runWorkflow} disabled={running || !apiKey} className="bg-blue-600 hover:bg-blue-500 text-white px-6 rounded-xl font-bold flex items-center gap-2 shadow-xl shadow-blue-900/20 active:scale-95 transition-all">
-                                    <Play size={16} fill="currentColor"/> {running ? "Running..." : "Execute"}
-                                </button>
-                            </div>
-                        </main>
+function topologicalSort(){
+  const visited = new Set(); const result = [];
+  function visit(id){ if(visited.has(id)) return; visited.add(id); const outEdges = edges.filter(e=>e.from===id); outEdges.forEach(e=>visit(e.to)); result.unshift(nodes.find(n=>n.id===id)); }
+  nodes.forEach(n=>{ if(!edges.some(e=>e.to===n.id)) visit(n.id); });
+  return result.filter(Boolean);
+}
 
-                        {/* Logs & Output Drawer */}
-                        <aside className="w-80 border-l border-gray-800 bg-gray-950 flex flex-col">
-                            <div className="flex-1 flex flex-col overflow-hidden">
-                                <div className="p-3 border-b border-gray-800 bg-gray-900/50 flex items-center gap-2">
-                                    <Terminal size={12} className="text-blue-500"/><span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Live Stream</span>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] space-y-1.5 scroll-smooth flex flex-col-reverse">
-                                    {logs.map((log, i) => (
-                                        <div key={i} className="flex gap-2">
-                                            <span className="text-gray-600 shrink-0">[{log.time}]</span>
-                                            <span className={log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'agent' ? 'text-blue-400' : 'text-gray-400'}>{log.msg}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+async function callGroqAgent(apiKey, agentType, prevResult){
+  const payloads = {
+    'gmail-summary': {action:'summarize_unread', max_emails:15},
+    'calendar-manager': {action:'summarize_day', date: new Date().toISOString().split('T')[0]},
+    'drive-manager': {action:'organize_root', dry_run:true},
+    'slack-agent': {action:'summarize_channel', channel:'#general', hours:24},
+    'github-agent': {action:'pr_digest', repo:'org/main', days:7},
+    'sheets-agent': {action:'create_report', title:'Workflow Report'},
+    'notion-agent': {action:'create_page', title:'Workflow Output'},
+    'web-scraper': {action:'scrape_url', url:'https://news.ycombinator.com'},
+    'jira-agent': {action:'list_issues', project:'ENG'},
+    'hubspot-agent': {action:'crm_report', days:30},
+    'linear-agent': {action:'weekly_report', team:'Engineering'},
+    'airtable-agent': {action:'ai_summary', base:'Tasks'},
+    'synthesizer': {action:'synthesize', context: prevResult ? JSON.stringify(prevResult).slice(0,400) : 'all previous results'},
+  };
+  const payload = payloads[agentType] || {action:'run'};
+  const model = document.getElementById('model-select').value;
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body: JSON.stringify({
+      model, max_tokens: 600, temperature: 0.4,
+      messages:[
+        {role:'system', content:'You are a '+agentType+' AI agent. Return ONLY compact valid JSON with realistic enterprise data for the action. Include _tokens field = approximate 200.'},
+        {role:'user', content:'Execute: '+JSON.stringify(payload)+(prevResult?' Context: '+JSON.stringify(prevResult).slice(0,200):'')},
+      ]
+    })
+  });
+  const data = await resp.json();
+  if(data.error) throw new Error(data.error.message);
+  let raw = data.choices[0].message.content.trim();
+  if(raw.startsWith('```')){raw=raw.split('\n').slice(1).join('\n');} if(raw.endsWith('```')){raw=raw.slice(0,-3).trim();}
+  try{ return JSON.parse(raw); } catch{ return {output:raw, agent:agentType, _tokens:200}; }
+}
 
-                            {selectedNode && (
-                                <div className="h-2/3 border-t border-gray-800 bg-gray-900/80 backdrop-blur-xl animate-in slide-in-from-bottom flex flex-col overflow-hidden shadow-2xl">
-                                    <div className="p-3 border-b border-gray-800 flex justify-between items-center">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                            <div className={`w-1.5 h-1.5 rounded-full ${selectedNode.status === 'done' ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                            Output Explorer
-                                        </span>
-                                        <button onClick={() => setSelectedNodeId(null)} className="text-gray-500 hover:text-white"><X size={14}/></button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-4">
-                                        {selectedNode.lastOutput ? (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-4 mb-4">
-                                                    <div className="p-3 bg-gray-800 rounded-xl border border-gray-700">
-                                                        {AGENT_LIBRARY.find(a => a.id === selectedNode.type).icon}
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-white uppercase text-xs tracking-tight">{AGENT_LIBRARY.find(a => a.id === selectedNode.type).name}</h4>
-                                                        <p className="text-[10px] text-gray-500">Analysis completed successfully</p>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    {Object.entries(selectedNode.lastOutput).map(([key, val]) => (
-                                                        <div key={key} className="bg-black/30 p-2.5 rounded-lg border border-gray-800/50">
-                                                            <p className="text-[9px] text-gray-500 uppercase font-bold mb-1">{key.replace(/_/g, ' ')}</p>
-                                                            <p className="text-xs text-gray-300">{typeof val === 'object' ? JSON.stringify(val) : val.toString()}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="h-full flex flex-col items-center justify-center opacity-40 italic text-xs">
-                                                <Layers className="mb-2"/> No output recorded yet
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </aside>
-                    </div>
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function clearCanvas(){ nodes=[]; edges=[]; canvas.innerHTML=''; edgeSvg.innerHTML=''; nodeIdCounter=0; updateStats(); document.getElementById('inspector').classList.remove('show'); document.getElementById('log-body').innerHTML=''; }
 
-                    <footer className="h-10 border-t border-gray-800 bg-gray-900 flex items-center justify-between px-6 shrink-0 z-10 text-[10px] text-gray-500">
-                        <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
-                            SAAP V5.5 Engine Online | {edges.length} Connections Active
-                        </div>
-                        {report && <div className="flex-1 mx-8 truncate text-blue-400 font-medium">Summary: {report}</div>}
-                    </footer>
+function saveWorkflow(){
+  const data = { nodes: nodes.map(({id,type,icon,label,x,y})=>({id,type,icon,label,x,y})), edges };
+  localStorage.setItem('saap_workflow', JSON.stringify(data));
+  addLog('Workflow saved to browser storage', 'ok');
+}
 
-                    <Modal isOpen={showKeyModal} onClose={apiKey ? () => setShowKeyModal(false) : null} title="Anthropic API Key">
-                        <div className="space-y-4">
-                            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-ant-..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-all"/>
-                            <button onClick={() => apiKey && setShowKeyModal(false)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all" disabled={!apiKey}>Save & Initialize</button>
-                        </div>
-                    </Modal>
-                </div>
-            );
-        };
+// ─── Templates ───
+const TEMPLATES = {
+  daily: {
+    nodes: [
+      {type:'trigger',icon:'⚡',label:'Trigger',x:40,y:200},
+      {type:'gmail-summary',icon:'📧',label:'Gmail Agent',x:260,y:100},
+      {type:'calendar-manager',icon:'📅',label:'Calendar',x:260,y:260},
+      {type:'slack-agent',icon:'💬',label:'Slack Agent',x:480,y:180},
+      {type:'synthesizer',icon:'🧠',label:'Synthesizer',x:700,y:180},
+      {type:'output',icon:'📤',label:'Output',x:920,y:180},
+    ],
+    edges: [
+      {from:'n1',to:'n2'},{from:'n1',to:'n3'},{from:'n2',to:'n4'},{from:'n3',to:'n4'},{from:'n4',to:'n5'},{from:'n5',to:'n6'},
+    ]
+  },
+  research: {
+    nodes: [
+      {type:'trigger',icon:'⚡',label:'Trigger',x:40,y:200},
+      {type:'web-scraper',icon:'🌐',label:'Web Scraper',x:260,y:80},
+      {type:'notion-agent',icon:'📝',label:'Notion Agent',x:260,y:240},
+      {type:'sheets-agent',icon:'📊',label:'Sheets Agent',x:260,y:380},
+      {type:'synthesizer',icon:'🧠',label:'Synthesizer',x:520,y:230},
+      {type:'output',icon:'📤',label:'Output',x:740,y:230},
+    ],
+    edges:[{from:'n1',to:'n2'},{from:'n1',to:'n3'},{from:'n1',to:'n4'},{from:'n2',to:'n5'},{from:'n3',to:'n5'},{from:'n4',to:'n5'},{from:'n5',to:'n6'}]
+  },
+  crm: {
+    nodes: [
+      {type:'trigger',icon:'⚡',label:'Trigger',x:40,y:200},
+      {type:'hubspot-agent',icon:'🏢',label:'HubSpot CRM',x:260,y:120},
+      {type:'airtable-agent',icon:'🗃️',label:'Airtable',x:260,y:280},
+      {type:'sheets-agent',icon:'📊',label:'Sheets Report',x:500,y:200},
+      {type:'slack-agent',icon:'💬',label:'Slack Alert',x:720,y:200},
+      {type:'output',icon:'📤',label:'Output',x:920,y:200},
+    ],
+    edges:[{from:'n1',to:'n2'},{from:'n1',to:'n3'},{from:'n2',to:'n4'},{from:'n3',to:'n4'},{from:'n4',to:'n5'},{from:'n5',to:'n6'}]
+  },
+  devops: {
+    nodes: [
+      {type:'trigger',icon:'⚡',label:'Trigger',x:40,y:220},
+      {type:'github-agent',icon:'🐙',label:'GitHub Agent',x:260,y:100},
+      {type:'jira-agent',icon:'🎯',label:'Jira Agent',x:260,y:260},
+      {type:'linear-agent',icon:'🔷',label:'Linear',x:260,y:400},
+      {type:'synthesizer',icon:'🧠',label:'Synthesizer',x:500,y:250},
+      {type:'slack-agent',icon:'💬',label:'Slack Report',x:720,y:250},
+      {type:'output',icon:'📤',label:'Output',x:920,y:250},
+    ],
+    edges:[{from:'n1',to:'n2'},{from:'n1',to:'n3'},{from:'n1',to:'n4'},{from:'n2',to:'n5'},{from:'n3',to:'n5'},{from:'n4',to:'n5'},{from:'n5',to:'n6'},{from:'n6',to:'n7'}]
+  }
+};
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+function loadTemplate(name){
+  clearCanvas();
+  const tpl = TEMPLATES[name];
+  if(!tpl) return;
+  const idMap = {};
+  tpl.nodes.forEach((n,i)=>{
+    const newId = addNode(n.type, n.icon, n.label, n.x, n.y);
+    idMap['n'+(i+1)] = newId;
+  });
+  tpl.edges.forEach(e=>{
+    const from = idMap[e.from], to = idMap[e.to];
+    if(from && to) edges.push({ id:'e'+(edges.length+1), from, to });
+  });
+  renderEdges(); updateStats();
+  addLog('Template loaded: '+name,'info');
+}
+
+// Load saved workflow or default template
+window.addEventListener('load',()=>{
+  try{ const saved = localStorage.getItem('saap_workflow'); if(saved){ const d=JSON.parse(saved); /* restore */ } }catch{}
+  loadTemplate('daily');
+});
+</script>
 </body>
 </html>

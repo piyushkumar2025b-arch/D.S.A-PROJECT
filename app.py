@@ -2033,6 +2033,7 @@ with st.sidebar:
         "⚡ Section 5 — LIVE AGENT HUB",
         "⚙️ Section 6 — n8n Real Simulation",
         "Ω Section 7 — Omega Agent",
+        "💬 Section 8 — Org Chat + AI Agent",
     ], label_visibility="collapsed")
 
     if "📘" in section:
@@ -2059,6 +2060,9 @@ with st.sidebar:
         page = "n8n_simulation"
     elif "Ω" in section:
         page = "omega_agent"
+    elif "💬" in section:
+        page = "org_chat"
+        st.sidebar.caption("🆕 Org-Wide Chat + AI")
     else:
         page = "n8n_simulation"
 
@@ -6643,4 +6647,550 @@ if page == "n8n_simulation":
             n8n_html = f.read()
         components.html(n8n_html, height=950, scrolling=True)
     else:
-        st.error("n8n_platform.html not found.")
+        st.error("n8n_platform.html not found.")
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  SECTION 8 — ORG CHAT + AI ANALYSER AGENT
+#  • Persistent SQLite database (richest schema in the platform)
+#  • All org members can chat in real time (per-session refresh)
+#  • AI Read Mode: Analyser Agent reads chat → routes to correct specialist agent
+#  • Research-oriented agent ideas embedded into the routing
+# ════════════════════════════════════════════════════════════════════════════════
+
+# ─── Chat DB Helpers ────────────────────────────────────────────────────────────
+
+def init_chat_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.executescript("""
+    -- Core chat messages (full org visibility)
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id           TEXT PRIMARY KEY,
+        sender_id    TEXT NOT NULL,
+        sender_name  TEXT NOT NULL,
+        sender_role  TEXT DEFAULT '',
+        sender_dept  TEXT DEFAULT '',
+        avatar_color TEXT DEFAULT '#3b82f6',
+        content      TEXT NOT NULL,
+        msg_type     TEXT DEFAULT 'text',        -- text | system | agent_trigger | agent_result
+        thread_id    TEXT DEFAULT '',            -- for threaded replies
+        reactions    TEXT DEFAULT '{}',          -- {"👍":["user1"],"🔥":["user2"]}
+        pinned       INTEGER DEFAULT 0,
+        edited       INTEGER DEFAULT 0,
+        deleted      INTEGER DEFAULT 0,
+        ai_processed INTEGER DEFAULT 0,          -- 1 if analyser read this
+        ai_intent    TEXT DEFAULT '',            -- detected intent
+        ai_routed_to TEXT DEFAULT '',            -- which agent was triggered
+        created_at   TEXT DEFAULT (datetime('now')),
+        updated_at   TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_sender  ON chat_messages(sender_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_thread  ON chat_messages(thread_id);
+    CREATE INDEX IF NOT EXISTS idx_chat_pinned  ON chat_messages(pinned);
+
+    -- AI Analyser Agent runs (one row per analysis job)
+    CREATE TABLE IF NOT EXISTS chat_ai_jobs (
+        id              TEXT PRIMARY KEY,
+        triggered_by_id TEXT NOT NULL,
+        triggered_by    TEXT NOT NULL,
+        message_ids     TEXT DEFAULT '[]',       -- JSON list of message IDs analysed
+        chat_excerpt    TEXT DEFAULT '',
+        detected_intent TEXT DEFAULT '',
+        confidence      INTEGER DEFAULT 0,       -- 0-100
+        routed_agent    TEXT DEFAULT '',         -- which specialist agent was chosen
+        routing_reason  TEXT DEFAULT '',
+        agent_result    TEXT DEFAULT '{}',       -- full JSON result from specialist
+        tokens_used     INTEGER DEFAULT 0,
+        status          TEXT DEFAULT 'pending',  -- pending | running | done | failed
+        created_at      TEXT DEFAULT (datetime('now')),
+        completed_at    TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_jobs_created  ON chat_ai_jobs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_agent    ON chat_ai_jobs(routed_agent);
+    CREATE INDEX IF NOT EXISTS idx_jobs_status   ON chat_ai_jobs(status);
+
+    -- Per-member chat profiles (extends hub_members)
+    CREATE TABLE IF NOT EXISTS chat_profiles (
+        member_id       TEXT PRIMARY KEY,
+        display_name    TEXT NOT NULL,
+        role            TEXT DEFAULT '',
+        department      TEXT DEFAULT '',
+        avatar_color    TEXT DEFAULT '#3b82f6',
+        status          TEXT DEFAULT 'online',   -- online | away | busy | offline
+        custom_status   TEXT DEFAULT '',
+        message_count   INTEGER DEFAULT 0,
+        ai_jobs_count   INTEGER DEFAULT 0,
+        last_active     TEXT DEFAULT (datetime('now')),
+        joined_at       TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Pinned resources / links / files shared in chat
+    CREATE TABLE IF NOT EXISTS chat_pins (
+        id          TEXT PRIMARY KEY,
+        msg_id      TEXT NOT NULL,
+        pinned_by   TEXT NOT NULL,
+        title       TEXT DEFAULT '',
+        created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Channel / room concept (single #general for now, expandable)
+    CREATE TABLE IF NOT EXISTS chat_channels (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL UNIQUE,
+        description TEXT DEFAULT '',
+        created_by  TEXT DEFAULT 'admin',
+        is_private  INTEGER DEFAULT 0,
+        member_ids  TEXT DEFAULT '[]',
+        msg_count   INTEGER DEFAULT 0,
+        created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Aggregate analytics: daily chat stats
+    CREATE TABLE IF NOT EXISTS chat_daily_stats (
+        stat_date       TEXT PRIMARY KEY,
+        total_messages  INTEGER DEFAULT 0,
+        active_members  INTEGER DEFAULT 0,
+        ai_jobs_run     INTEGER DEFAULT 0,
+        tokens_consumed INTEGER DEFAULT 0,
+        top_sender      TEXT DEFAULT '',
+        top_agent       TEXT DEFAULT ''
+    );
+
+    -- Agent routing rules (maps intent keywords → agent)
+    CREATE TABLE IF NOT EXISTS chat_routing_rules (
+        id          TEXT PRIMARY KEY,
+        intent_key  TEXT NOT NULL,
+        keywords    TEXT DEFAULT '[]',
+        agent_id    TEXT NOT NULL,
+        agent_label TEXT DEFAULT '',
+        priority    INTEGER DEFAULT 5,
+        active      INTEGER DEFAULT 1
+    );
+    """)
+
+    # Seed default channel
+    c.execute("""INSERT OR IGNORE INTO chat_channels (id,name,description,created_by)
+                 VALUES ('ch-general','general','Organisation-wide chat channel','admin')""")
+
+    # Seed default routing rules
+    routing_rules = [
+        ("rr-01","email",       '["email","gmail","inbox","mail","unread"]',         "gmail-summary",    "Gmail Agent",    10),
+        ("rr-02","calendar",    '["calendar","meeting","schedule","event","slot"]',   "calendar-manager", "Calendar Agent", 10),
+        ("rr-03","drive",       '["drive","file","document","folder","storage"]',     "drive-manager",    "Drive Agent",    9),
+        ("rr-04","slack",       '["slack","channel","message","chat","standup"]',     "slack-agent",      "Slack Agent",    9),
+        ("rr-05","github",      '["github","pr","pull request","repo","commit","code"]', "github-agent", "GitHub Agent",   10),
+        ("rr-06","jira",        '["jira","ticket","sprint","backlog","issue","task"]', "jira-agent",      "Jira Agent",     10),
+        ("rr-07","hubspot",     '["hubspot","crm","deal","contact","pipeline","lead"]', "hubspot-agent",  "HubSpot Agent",  9),
+        ("rr-08","sheets",      '["sheet","spreadsheet","report","data","csv","excel"]', "sheets-agent",  "Sheets Agent",   8),
+        ("rr-09","research",    '["research","analyse","study","hypothesis","literature","paper"]', "synthesizer", "Research Synthesizer", 7),
+        ("rr-10","web",         '["scrape","web","website","news","monitor","extract"]', "web-scraper",   "Web Scraper",    8),
+        ("rr-11","linear",      '["linear","cycle","velocity","milestone","roadmap"]', "linear-agent",   "Linear Agent",   8),
+        ("rr-12","notion",      '["notion","page","wiki","knowledge","note","doc"]',   "notion-agent",   "Notion Agent",   8),
+        ("rr-13","airtable",    '["airtable","base","record","database","table"]',     "airtable-agent", "Airtable Agent", 7),
+    ]
+    c.executemany(
+        "INSERT OR IGNORE INTO chat_routing_rules (id,intent_key,keywords,agent_id,agent_label,priority) VALUES (?,?,?,?,?,?)",
+        routing_rules
+    )
+
+    # Seed chat profiles from org members
+    org_members_list = [
+        ("chat-1", "Alex Chen",       "Engineering Lead",  "Engineering", "#3b82f6"),
+        ("chat-2", "Priya Sharma",    "Product Manager",   "Product",     "#8b5cf6"),
+        ("chat-3", "Marcus Johnson",  "Data Analyst",      "Analytics",   "#22c55e"),
+        ("chat-4", "Sofia Rodriguez", "CRM Manager",       "Sales",       "#f59e0b"),
+        ("chat-5", "Liam Patel",      "DevOps Engineer",   "Engineering", "#ef4444"),
+        ("chat-6", "AI Bot",          "Assistant",         "AI",          "#06b6d4"),
+    ]
+    c.executemany(
+        "INSERT OR IGNORE INTO chat_profiles (member_id,display_name,role,department,avatar_color) VALUES (?,?,?,?,?)",
+        org_members_list
+    )
+
+    conn.commit()
+    conn.close()
+
+init_chat_db()
+
+# ─── Chat CRUD ──────────────────────────────────────────────────────────────────
+
+def chat_post_message(sender_id, sender_name, sender_role, sender_dept, avatar_color, content, msg_type="text", thread_id=""):
+    mid = str(uuid.uuid4())
+    with db() as c:
+        c.execute("""INSERT INTO chat_messages
+            (id,sender_id,sender_name,sender_role,sender_dept,avatar_color,content,msg_type,thread_id)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (mid, sender_id, sender_name, sender_role, sender_dept, avatar_color, content, msg_type, thread_id))
+        c.execute("UPDATE chat_profiles SET message_count=message_count+1, last_active=datetime('now') WHERE member_id=?", (sender_id,))
+        c.execute("""INSERT INTO chat_daily_stats (stat_date,total_messages,active_members)
+            VALUES (date('now'),1,1)
+            ON CONFLICT(stat_date) DO UPDATE SET
+                total_messages=total_messages+1""")
+    return mid
+
+def chat_get_messages(limit=60, channel_id="ch-general"):
+    with db() as c:
+        rows = c.execute("""SELECT * FROM chat_messages WHERE deleted=0
+            ORDER BY created_at DESC LIMIT ?""", (limit,)).fetchall()
+    return [dict(r) for r in reversed(rows)]
+
+def chat_get_profiles():
+    with db() as c:
+        rows = c.execute("SELECT * FROM chat_profiles ORDER BY last_active DESC").fetchall()
+    return [dict(r) for r in rows]
+
+def chat_pin_message(msg_id, pinned_by, title=""):
+    pin_id = str(uuid.uuid4())
+    with db() as c:
+        c.execute("UPDATE chat_messages SET pinned=1 WHERE id=?", (msg_id,))
+        c.execute("INSERT OR IGNORE INTO chat_pins (id,msg_id,pinned_by,title) VALUES (?,?,?,?)",
+                  (pin_id, msg_id, pinned_by, title))
+
+def chat_get_stats():
+    with db() as c:
+        total = c.execute("SELECT COUNT(*) FROM chat_messages WHERE deleted=0").fetchone()[0]
+        members = c.execute("SELECT COUNT(*) FROM chat_profiles").fetchone()[0]
+        jobs = c.execute("SELECT COUNT(*) FROM chat_ai_jobs WHERE status='done'").fetchone()[0]
+        tokens = c.execute("SELECT COALESCE(SUM(tokens_used),0) FROM chat_ai_jobs").fetchone()[0]
+        pinned = c.execute("SELECT COUNT(*) FROM chat_messages WHERE pinned=1").fetchone()[0]
+    return {"total_messages": total, "members": members, "ai_jobs": jobs, "tokens": tokens, "pinned": pinned}
+
+def chat_get_ai_jobs(limit=20):
+    with db() as c:
+        rows = c.execute("SELECT * FROM chat_ai_jobs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+def chat_save_ai_job(job_id, triggered_by_id, triggered_by, excerpt, intent, confidence, routed_agent, routing_reason, agent_result, tokens, status):
+    with db() as c:
+        c.execute("""INSERT OR REPLACE INTO chat_ai_jobs
+            (id,triggered_by_id,triggered_by,chat_excerpt,detected_intent,confidence,routed_agent,routing_reason,agent_result,tokens_used,status,completed_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+            (job_id, triggered_by_id, triggered_by, excerpt, intent, confidence, routed_agent, routing_reason,
+             json.dumps(agent_result) if isinstance(agent_result, dict) else agent_result, tokens, status))
+        c.execute("UPDATE chat_profiles SET ai_jobs_count=ai_jobs_count+1 WHERE member_id=?", (triggered_by_id,))
+        c.execute("""INSERT INTO chat_daily_stats (stat_date,ai_jobs_run,tokens_consumed)
+            VALUES (date('now'),1,?) ON CONFLICT(stat_date) DO UPDATE SET
+            ai_jobs_run=ai_jobs_run+1, tokens_consumed=tokens_consumed+?""", (tokens, tokens))
+
+# ─── AI Analyser Agent ──────────────────────────────────────────────────────────
+
+ANALYSER_SYSTEM = """You are the SAAP Chat Analyser Agent. You read organisation chat messages and:
+1. Detect the primary intent/task requested
+2. Identify the BEST specialist agent to handle it
+3. Extract a concise task description for that agent
+
+Available agents:
+- gmail-summary: email, inbox, gmail, mail tasks
+- calendar-manager: meetings, scheduling, events, calendar
+- drive-manager: files, documents, Google Drive, storage
+- slack-agent: Slack messages, channels, standups
+- github-agent: GitHub, PRs, code reviews, repos, commits
+- jira-agent: Jira tickets, sprints, backlog, project issues
+- hubspot-agent: CRM, deals, contacts, HubSpot, leads
+- sheets-agent: spreadsheets, reports, data, Google Sheets
+- notion-agent: Notion pages, wiki, knowledge base, notes
+- web-scraper: web scraping, URLs, monitoring, news
+- linear-agent: Linear issues, cycles, roadmap, milestones
+- airtable-agent: Airtable, databases, records, tables
+- synthesizer: research synthesis, multi-source analysis
+
+Return ONLY valid JSON:
+{
+  "intent_summary": "<one sentence what the chat is asking for>",
+  "detected_keywords": ["kw1","kw2"],
+  "recommended_agent": "<agent-id from the list above>",
+  "agent_task": "<specific task description for that agent>",
+  "confidence": <0-100>,
+  "routing_reason": "<why this agent is best>",
+  "alternative_agent": "<second best agent-id or null>",
+  "urgency": "high|medium|low"
+}"""
+
+def run_analyser_agent(api_key: str, chat_excerpt: str) -> dict:
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            max_tokens=600,
+            temperature=0.2,
+            messages=[
+                {"role": "system", "content": ANALYSER_SYSTEM},
+                {"role": "user", "content": f"Analyse this org chat excerpt and route to the best agent:\n\n{chat_excerpt}"},
+            ]
+        )
+        raw = resp.choices[0].message.content.strip()
+        tokens = resp.usage.total_tokens
+        if raw.startswith("```"):
+            raw = "\n".join(raw.split("\n")[1:])
+        if raw.endswith("```"):
+            raw = raw[:-3].strip()
+        result = json.loads(raw)
+        result["_tokens"] = tokens
+        return result
+    except Exception as e:
+        return {"intent_summary": "Unknown", "recommended_agent": "synthesizer", "agent_task": chat_excerpt,
+                "confidence": 30, "routing_reason": "Fallback", "alternative_agent": None,
+                "urgency": "medium", "detected_keywords": [], "_tokens": 0, "_error": str(e)}
+
+def run_routed_agent(api_key: str, agent_id: str, task: str) -> dict:
+    payload = DEFAULT_PAYLOADS.get(agent_id, {"action": "run", "task": task})
+    payload["ai_chat_task"] = task
+    try:
+        result = call_groq(api_key, agent_id, payload, extra_context=f"Task from org chat: {task}")
+        return result
+    except Exception as e:
+        return {"error": str(e), "agent": agent_id, "status": "failed"}
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  SECTION 8 UI
+# ════════════════════════════════════════════════════════════════════════════════
+
+if page == "org_chat":
+    import streamlit.components.v1 as components
+
+    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">💬 SECTION 8 — ORG CHAT + AI AGENT</span>', unsafe_allow_html=True)
+    st.title("💬 Organisation Chat Hub")
+    st.caption("All members · Persistent database · AI Analyser Agent with automatic routing")
+
+    # ── Identity selector (who am I) ────────────────────────────────────────────
+    profiles = chat_get_profiles()
+    member_options = {p["display_name"]: p for p in profiles if p["member_id"] != "chat-6"}
+    if "chat_identity" not in st.session_state:
+        st.session_state.chat_identity = list(member_options.keys())[0]
+
+    with st.sidebar:
+        st.divider()
+        st.markdown('<div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Chat Identity</div>', unsafe_allow_html=True)
+        chosen_name = st.selectbox("You are:", list(member_options.keys()), key="chat_id_sel",
+                                   index=list(member_options.keys()).index(st.session_state.chat_identity))
+        st.session_state.chat_identity = chosen_name
+        me = member_options[chosen_name]
+
+        st.markdown(f"""<div style="background:rgba({','.join(str(int(me['avatar_color'].lstrip('#')[i:i+2],16)) for i in (0,2,4))},.12);border:1px solid {me['avatar_color']}40;border-radius:8px;padding:8px 10px;margin-top:4px;">
+        <div style="font-size:.8rem;font-weight:700;color:#f0f4ff;">{me['display_name']}</div>
+        <div style="font-size:.72rem;color:#94a8c8;">{me['role']} · {me['department']}</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── Stats bar ───────────────────────────────────────────────────────────────
+    stats = chat_get_stats()
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("💬 Messages", stats["total_messages"])
+    c2.metric("👥 Members", stats["members"])
+    c3.metric("🤖 AI Jobs", stats["ai_jobs"])
+    c4.metric("📌 Pinned", stats["pinned"])
+    c5.metric("🔋 Tokens", f"{stats['tokens']:,}")
+
+    st.divider()
+
+    # ── Main layout ─────────────────────────────────────────────────────────────
+    chat_col, panel_col = st.columns([2, 1])
+
+    with chat_col:
+        # ── AI Read Mode toggle ─────────────────────────────────────────────────
+        ai_mode_col, input_col = st.columns([1, 3])
+        with ai_mode_col:
+            ai_mode = st.toggle("🤖 AI Read Mode", value=False, help="When ON, the Analyser Agent reads your message, identifies what needs to be done, and routes to the best specialist agent automatically.")
+            if ai_mode:
+                st.markdown('<div style="font-size:.7rem;color:#22d3ee;padding:2px 0;">Analyser → Route → Execute</div>', unsafe_allow_html=True)
+
+        with input_col:
+            new_msg = st.text_area("Message", placeholder="Type your message... (In AI mode, describe a task and it will be auto-routed to the right agent)", height=80, label_visibility="collapsed", key="chat_msg_input")
+
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 3])
+        with btn_col1:
+            send_clicked = st.button("➤ Send", type="primary", use_container_width=True)
+        with btn_col2:
+            refresh_clicked = st.button("🔄 Refresh", use_container_width=True)
+
+        if send_clicked and new_msg.strip():
+            # Post message from the selected member
+            mid = chat_post_message(
+                sender_id=me["member_id"],
+                sender_name=me["display_name"],
+                sender_role=me["role"],
+                sender_dept=me["department"],
+                avatar_color=me["avatar_color"],
+                content=new_msg.strip(),
+                msg_type="text"
+            )
+
+            if ai_mode and api_key:
+                # ── AI Read Mode: full pipeline ──────────────────────────────
+                with st.spinner("🤖 Analyser Agent reading your message..."):
+                    # Get last 10 messages for context
+                    recent = chat_get_messages(limit=10)
+                    excerpt_lines = [f"[{m['sender_name']}]: {m['content']}" for m in recent[-5:]]
+                    excerpt_lines.append(f"[{me['display_name']}]: {new_msg.strip()}")
+                    excerpt = "\n".join(excerpt_lines)
+
+                    analysis = run_analyser_agent(api_key, excerpt)
+
+                routed_agent = analysis.get("recommended_agent", "synthesizer")
+                intent = analysis.get("intent_summary", "")
+                confidence = analysis.get("confidence", 0)
+                task = analysis.get("agent_task", new_msg.strip())
+
+                # Post system message: analyser result
+                chat_post_message(
+                    sender_id="chat-6", sender_name="AI Bot",
+                    sender_role="Analyser Agent", sender_dept="AI",
+                    avatar_color="#06b6d4",
+                    content=f"🔍 **Analyser Agent** detected: _{intent}_\n→ Routing to **{routed_agent}** (confidence: {confidence}%)\n→ Task: _{task}_",
+                    msg_type="system"
+                )
+
+                job_id = str(uuid.uuid4())
+                if api_key and confidence >= 40:
+                    with st.spinner(f"⚙️ Running {routed_agent}..."):
+                        agent_result = run_routed_agent(api_key, routed_agent, task)
+                    tokens_used = analysis.get("_tokens", 0) + agent_result.get("_meta", {}).get("tokens", 0)
+
+                    # Post agent result as message
+                    result_preview = json.dumps(agent_result, indent=2)[:600] + ("..." if len(json.dumps(agent_result)) > 600 else "")
+                    chat_post_message(
+                        sender_id="chat-6", sender_name="AI Bot",
+                        sender_role=routed_agent, sender_dept="AI",
+                        avatar_color="#22c55e",
+                        content=f"✅ **{routed_agent}** completed:\n```json\n{result_preview}\n```",
+                        msg_type="agent_result"
+                    )
+
+                    chat_save_ai_job(job_id, me["member_id"], me["display_name"],
+                                     excerpt, intent, confidence, routed_agent,
+                                     analysis.get("routing_reason",""), agent_result, tokens_used, "done")
+                    st.success(f"✅ AI pipeline complete: {routed_agent} executed successfully.")
+                else:
+                    chat_save_ai_job(job_id, me["member_id"], me["display_name"],
+                                     excerpt, intent, confidence, routed_agent,
+                                     analysis.get("routing_reason",""), {}, analysis.get("_tokens",0), "done")
+                    if not api_key:
+                        st.warning("⚠️ Add your Groq API key in the sidebar to run the routed agent.")
+            elif ai_mode and not api_key:
+                st.warning("⚠️ AI Mode requires a Groq API key — paste it in the sidebar.")
+
+            st.rerun()
+
+        # ── Chat message display ─────────────────────────────────────────────────
+        messages = chat_get_messages(limit=60)
+        st.markdown("---")
+        st.markdown(f'<div style="font-size:.75rem;color:var(--text3);margin-bottom:8px;">#{" general"} · {len(messages)} messages</div>', unsafe_allow_html=True)
+
+        for msg in messages:
+            is_me = msg["sender_id"] == me["member_id"]
+            is_system = msg["msg_type"] in ("system", "agent_result")
+            color = msg.get("avatar_color", "#3b82f6")
+            initials = "".join(p[0] for p in msg["sender_name"].split()[:2]).upper()
+
+            if is_system:
+                st.markdown(f"""<div style="background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.15);border-radius:8px;padding:10px 14px;margin:6px 0;font-size:.8rem;color:#94a8c8;">
+                <span style="color:#22d3ee;font-weight:700;font-size:.72rem;">{msg['sender_name'].upper()} · {msg['sender_role']}</span><br/>
+                {msg['content'].replace(chr(10),'<br/>')}
+                <span style="float:right;font-size:.65rem;color:var(--text3);">{msg['created_at'][11:16]}</span>
+                </div>""", unsafe_allow_html=True)
+            else:
+                align = "right" if is_me else "left"
+                bg = "rgba(59,130,246,.1)" if is_me else "var(--surface)"
+                border = f"rgba(59,130,246,.3)" if is_me else "var(--border)"
+                st.markdown(f"""<div style="display:flex;align-items:flex-start;gap:8px;margin:8px 0;flex-direction:{'row-reverse' if is_me else 'row'};">
+                  <div style="width:32px;height:32px;border-radius:50%;background:{color};display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#fff;flex-shrink:0;">{initials}</div>
+                  <div style="max-width:70%;">
+                    <div style="font-size:.68rem;color:var(--text3);margin-bottom:3px;text-align:{align};">
+                      <strong style="color:var(--text2);">{msg['sender_name']}</strong> · {msg['sender_role']} · {msg['created_at'][11:16]}
+                      {'📌' if msg['pinned'] else ''}
+                    </div>
+                    <div style="background:{bg};border:1px solid {border};border-radius:{'12px 12px 4px 12px' if is_me else '12px 12px 12px 4px'};padding:10px 12px;font-size:.82rem;color:var(--text);">
+                      {msg['content'].replace(chr(10),'<br/>')}
+                    </div>
+                  </div>
+                </div>""", unsafe_allow_html=True)
+
+    # ── Right panel: Members + AI Jobs ──────────────────────────────────────────
+    with panel_col:
+        tab_mem, tab_jobs, tab_rules = st.tabs(["👥 Members", "🤖 AI Jobs", "🗺️ Routing"])
+
+        with tab_mem:
+            st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Online Members</div>', unsafe_allow_html=True)
+            for p in profiles:
+                color = p.get("avatar_color", "#3b82f6")
+                initials = "".join(pt[0] for pt in p["display_name"].split()[:2]).upper()
+                is_active = p["member_id"] == me["member_id"]
+                st.markdown(f"""<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:{'rgba(59,130,246,.08)' if is_active else 'var(--surface)'};border:1px solid {'rgba(59,130,246,.25)' if is_active else 'var(--border)'};border-radius:8px;margin-bottom:4px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:{color};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0;">{initials}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.78rem;font-weight:600;color:#f0f4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p['display_name']} {'← You' if is_active else ''}</div>
+                    <div style="font-size:.68rem;color:#94a8c8;">{p['role']}</div>
+                  </div>
+                  <div style="font-size:.65rem;color:#4ade80;">●</div>
+                </div>""", unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:6px;">{len(profiles)} members · All online</div>', unsafe_allow_html=True)
+
+        with tab_jobs:
+            st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Recent AI Pipeline Jobs</div>', unsafe_allow_html=True)
+            jobs = chat_get_ai_jobs(limit=15)
+            if not jobs:
+                st.info("No AI jobs yet. Enable AI Read Mode and send a task message.")
+            for job in jobs:
+                status_color = {"done": "#4ade80", "failed": "#f87171", "running": "#fbbf24", "pending": "#94a8c8"}.get(job["status"], "#94a8c8")
+                st.markdown(f"""<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:.72rem;font-weight:700;color:#f0f4ff;">{job.get('routed_agent','?')}</span>
+                    <span style="font-size:.65rem;color:{status_color};font-weight:700;">{job['status'].upper()}</span>
+                  </div>
+                  <div style="font-size:.7rem;color:#94a8c8;">{job.get('detected_intent','')[:60]}</div>
+                  <div style="font-size:.65rem;color:var(--text3);margin-top:3px;">By {job['triggered_by']} · {job['created_at'][11:16]} · {job['tokens_used']} tokens</div>
+                  <div style="font-size:.65rem;color:#60a5fa;margin-top:2px;">Confidence: {job.get('confidence',0)}%</div>
+                </div>""", unsafe_allow_html=True)
+
+        with tab_rules:
+            st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Agent Routing Rules</div>', unsafe_allow_html=True)
+            with db() as c:
+                rules = [dict(r) for r in c.execute("SELECT * FROM chat_routing_rules WHERE active=1 ORDER BY priority DESC").fetchall()]
+            for rule in rules:
+                try:
+                    kws = json.loads(rule["keywords"])
+                    kw_str = ", ".join(kws[:4]) + ("..." if len(kws) > 4 else "")
+                except:
+                    kw_str = rule["keywords"]
+                st.markdown(f"""<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-bottom:4px;">
+                  <div style="font-size:.75rem;font-weight:600;color:#f0f4ff;">{rule['agent_label']}</div>
+                  <div style="font-size:.65rem;color:#94a8c8;">Keywords: {kw_str}</div>
+                  <div style="font-size:.62rem;color:var(--text3);">Priority: {rule['priority']}</div>
+                </div>""", unsafe_allow_html=True)
+
+    # ── Database Explorer ────────────────────────────────────────────────────────
+    st.divider()
+    with st.expander("🗄️ Chat Database Explorer (Live)"):
+        db_tab1, db_tab2, db_tab3, db_tab4 = st.tabs(["Messages", "AI Jobs", "Profiles", "Daily Stats"])
+        with db_tab1:
+            with db() as c:
+                df_msgs = c.execute("""SELECT id, sender_name, sender_dept, content, msg_type, ai_processed,
+                    pinned, created_at FROM chat_messages WHERE deleted=0 ORDER BY created_at DESC LIMIT 50""").fetchall()
+            if df_msgs:
+                import pandas as pd
+                st.dataframe(pd.DataFrame(df_msgs, columns=["ID","Sender","Dept","Content","Type","AI","Pinned","Created"]), use_container_width=True)
+        with db_tab2:
+            with db() as c:
+                df_jobs = c.execute("SELECT id,triggered_by,routed_agent,detected_intent,confidence,tokens_used,status,created_at FROM chat_ai_jobs ORDER BY created_at DESC LIMIT 30").fetchall()
+            if df_jobs:
+                import pandas as pd
+                st.dataframe(pd.DataFrame(df_jobs, columns=["ID","By","Agent","Intent","Confidence","Tokens","Status","Created"]), use_container_width=True)
+            else:
+                st.info("No AI jobs in database yet.")
+        with db_tab3:
+            with db() as c:
+                df_prof = c.execute("SELECT member_id,display_name,role,department,message_count,ai_jobs_count,last_active FROM chat_profiles").fetchall()
+            if df_prof:
+                import pandas as pd
+                st.dataframe(pd.DataFrame(df_prof, columns=["ID","Name","Role","Dept","Messages","AI Jobs","Last Active"]), use_container_width=True)
+        with db_tab4:
+            with db() as c:
+                df_stats = c.execute("SELECT * FROM chat_daily_stats ORDER BY stat_date DESC LIMIT 30").fetchall()
+            if df_stats:
+                import pandas as pd
+                st.dataframe(pd.DataFrame(df_stats, columns=["Date","Messages","Members","AI Jobs","Tokens","Top Sender","Top Agent"]), use_container_width=True)
+            else:
+                st.info("No daily stats yet — send some messages first.")
