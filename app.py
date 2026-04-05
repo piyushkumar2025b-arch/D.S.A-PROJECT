@@ -2030,8 +2030,9 @@ with st.sidebar:
         "🔬 Section 2 — Live Research Agent",
         "🚧 Section 3 — Research Problems",
         "🏢 Section 4 — Real Org Mode",
-        "⚡ Section 5 — LIVE AGENT HUB 🔥",
+        "⚡ Section 5 — LIVE AGENT HUB",
         "📖 Section 6 — Documentation",
+        "Ω Section 7 — Omega Agent",
     ], label_visibility="collapsed")
 
     if "📘" in section:
@@ -2054,6 +2055,10 @@ with st.sidebar:
         st.sidebar.caption("🆕 Real API Integration")
     elif "⚡" in section:
         page = "live_hub"
+    elif "📖" in section:
+        page = "documentation"
+    elif "Ω" in section:
+        page = "omega_agent"
     else:
         page = "documentation"
 
@@ -6358,57 +6363,17 @@ making automation outputs specific to YOUR organisation instead of generic AI re
 
     # ════════════════════════════════════════════════════════════════
     #  TAB 5 — RUN HISTORY
-    # ════════════════════════════════════════════════════════════════
-    with hub_tabs[4]:
-        st.subheader("📊 Run History & Analytics")
+    # ═════════════════════════════════════════════════════if page == "omega_agent":
+    st.markdown('<span style="background:#3b1f6b;color:#c084fc;padding:2px 12px;border-radius:99px;font-size:0.72rem;font-weight:bold;">Ω SECTION 7 — OMEGA AGENT v5.5</span>', unsafe_allow_html=True)
+    st.title("Ω Omega Agent — 80+ Capability Collective")
+    groq_from_sidebar = api_key or ""
+    omega_html = build_omega_html(groq_from_sidebar)
+    import streamlit.components.v1 as components
+    components.html(omega_html, height=950, scrolling=True)
 
-        runs = hub_get_runs(100)
-        if not runs:
-            st.info("No runs yet. Go to **Run Live** to launch your first automation!")
-        else:
-            total_tokens = sum(json.loads(r.get("token_usage","{}")).get("total",0) for r in runs)
-            total_cost   = sum(json.loads(r.get("token_usage","{}")).get("cost_usd",0) for r in runs)
-            total_real   = sum(r.get("real_api_calls",0) for r in runs)
-            completed    = sum(1 for r in runs if r.get("status") == "COMPLETED")
-
-            m1, m2, m3, m4, m5 = st.columns(5)
-            m1.metric("Total Runs", len(runs))
-            m2.metric("✅ Completed", completed)
-            m3.metric("🔌 Real API Calls", total_real)
-            m4.metric("Total Tokens", f"{total_tokens:,}")
-            m5.metric("Est. Total Cost", f"${round(total_cost,4)}")
-
-            st.divider()
-
-            # Search + filter
-            import pandas as pd
-            fc1, fc2, fc3 = st.columns([2, 1, 1])
-            run_search = fc1.text_input("🔍 Search runs", placeholder="Search by goal or automation name...")
-            auto_names = sorted(set(r.get("automation_name","?") for r in runs))
-            run_filter_auto = fc2.selectbox("Filter by automation", ["All"] + auto_names)
-            run_filter_user = fc3.selectbox("Filter by user", ["All"] + sorted(set(r.get("run_by_name","?") for r in runs)))
-
-            filtered_runs = runs
-            if run_search:
-                filtered_runs = [r for r in filtered_runs if run_search.lower() in (r.get("goal","") + r.get("automation_name","")).lower()]
-            if run_filter_auto != "All":
-                filtered_runs = [r for r in filtered_runs if r.get("automation_name") == run_filter_auto]
-            if run_filter_user != "All":
-                filtered_runs = [r for r in filtered_runs if r.get("run_by_name") == run_filter_user]
-
-            st.markdown(f"**{len(filtered_runs)} run(s) matching filters**")
-
-            # Summary table
-            if filtered_runs:
-                summary_rows = []
-                for r in filtered_runs[:50]:
-                    tu = json.loads(r.get("token_usage","{}"))
-                    summary_rows.append({
-                        "ID": r["id"][:8],
-                        "Automation": r.get("automation_name","?")[:35],
-                        "Goal": r.get("goal","?")[:50] + "...",
-                        "Run By": r.get("run_by_name","?"),
-                        "Status": r.get("status","?"),
+if page == "documentation":
+    render_section_6_docs()
+       "Status": r.get("status","?"),
                         "🔌 Real Calls": r.get("real_api_calls",0),
                         "Tokens": tu.get("total",0),
                         "Cost ($)": tu.get("cost_usd",0),
@@ -6608,6 +6573,28 @@ making automation outputs specific to YOUR organisation instead of generic AI re
                     st.info("No audit events recorded yet. Events are logged on login.")
             except Exception as e:
                 st.info(f"Audit log not available: {e}")
+
+if page == "omega_agent":
+    # --- SECTION 6: OMEGA AGENT (The 50+ Agent Platform) ---
+    import os
+    st.markdown('<div class="live-badge" style="margin-bottom:12px;">Ω SECTION 7 — OMEGA AGENT (v5.5)</div>', unsafe_allow_html=True)
+    
+def build_omega_html(groq_key: str) -> str:
+    path = "omega_agent.html"
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                html = f.read()
+            if groq_key:
+                # Inject the key into the window object for global access within the React script
+                html = html.replace('<script type="text/babel">', 
+                                  f'<script type="text/babel">
+        window.INJECTED_GROQ_KEY = "{groq_key}";')
+            return html
+        except Exception as e:
+            return f"<h3>Error loading omega_agent.html: {str(e)}</h3>"
+    return "<h3>omega_agent.html not found</h3>"
+
 
 if page == "documentation":
     render_section_6_docs()

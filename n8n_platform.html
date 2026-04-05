@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAAP n8n-Style Agent Hub</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide-react"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #e5e7eb;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .canvas-grid {
+            background-image: radial-gradient(#1f2937 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        @keyframes pulse-yellow {
+            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+        }
+        .running-node {
+            animation: pulse-yellow 2s infinite;
+        }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .no-select {
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        const { 
+            Settings, Play, Terminal, Database, Cpu, 
+            LayoutGrid, Zap, Activity, ShieldAlert, 
+            FileText, Download, Trash2, X, Plus, ChevronRight,
+            Search, Github, Slack, Mail, Calendar, Layers,
+            Database: DatabaseIcon, Globe, FileSpreadsheet, List,
+            Briefcase, Share2, AlertTriangle, CheckCircle2, Info
+        } = lucideReact;
+
+        const { 
+            LineChart, Line, XAxis, YAxis, CartesianGrid, 
+            Tooltip, ResponsiveContainer, AreaChart, Area 
+        } = Recharts;
+
+        // --- CONFIGURATION ---
+        const AGENT_LIBRARY = [
+            { 
+                id: 'gmail-agent', name: 'Gmail Agent', category: 'Google Workspace', icon: <Mail size={16}/>, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
+                prompt: `Return ONLY valid JSON: {"emails": [{"id":"1","from":"CEO","subject":"Q4 Goals","summary":"Review the Q4 targets."}], "total_unread": 5}`
+            },
+            { 
+                id: 'calendar-agent', name: 'Calendar Agent', category: 'Google Workspace', icon: <Calendar size={16}/>, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20',
+                prompt: `Return ONLY valid JSON: {"events": [{"id":"1","title":"Board Meeting","start":"10:00 AM"}], "availability_score": 85}`
+            },
+            { 
+                id: 'github-agent', name: 'GitHub Agent', category: 'Dev Tools', icon: <Github size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
+                prompt: `Return ONLY valid JSON: {"open_prs": [{"id":101,"title":"Refactor UI","author":"dev_alpha","risk":"low"}], "ci_status":"passing"}`
+            },
+            { 
+                id: 'slack-agent', name: 'Slack Agent', category: 'Dev Tools', icon: <Slack size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
+                prompt: `Return ONLY valid JSON: {"trending_topics": [{"topic":"Infrastructure","sentiment":"neu","volume":12}], "team_pulse":"stable"}`
+            },
+            { 
+                id: 'hubspot-agent', name: 'HubSpot Agent', category: 'CRM', icon: <Briefcase size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
+                prompt: `Return ONLY valid JSON: {"active_deals": [{"name":"Project Titan","val":50000,"stage":"Closing"}], "pipeline_value":240000}`
+            },
+            { 
+                id: 'jira-agent', name: 'Jira Agent', category: 'CRM', icon: <Layers size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
+                prompt: `Return ONLY valid JSON: {"sprint_progress": 72, "blockers": [{"id":"T-102","desc":"DB latency"}]}`
+            },
+            { 
+                id: 'notion-agent', name: 'Notion Agent', category: 'CRM', icon: <FileText size={16}/>, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20',
+                prompt: `Return ONLY valid JSON: {"recent_updates": [{"page":"Product Roadmap","editor":"PM_Jane"}], "missing_docs":["API Sec"]}`
+            },
+            { 
+                id: 'web-scraper', name: 'Web Scraper', category: 'Web', icon: <Globe size={16}/>, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20',
+                prompt: `Return ONLY valid JSON: {"scraped_data": [{"url":"competitor.com","content_summary":"Launching V2 next month"}]}`
+            },
+            { 
+                id: 'sheets-agent', name: 'Sheets Agent', category: 'Analytics', icon: <FileSpreadsheet size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
+                prompt: `Return ONLY valid JSON: {"metrics": [{"name":"ROI","value":4.2,"change":0.5}], "anomalies":[]}`
+            },
+            { 
+                id: 'airtable-agent', name: 'Airtable Agent', category: 'Analytics', icon: <DatabaseIcon size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
+                prompt: `Return ONLY valid JSON: {"table_summaries": [{"table":"Leads","count":1240}], "schema_health":"nominal"}`
+            },
+            { 
+                id: 'linear-agent', name: 'Linear Agent', category: 'Dev Tools', icon: <List size={16}/>, color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20',
+                prompt: `Return ONLY valid JSON: {"cycle_velocity": 42.5, "high_priority_issues": [{"id":"ENG-12","title":"Auth Leak"}]}`
+            },
+            { 
+                id: 'synthesizer-agent', name: 'Synthesizer', category: 'AI', icon: <Cpu size={16}/>, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20',
+                prompt: `Return ONLY valid JSON: {"executive_summary": "Overall health is good with minor blockers in infrastructure.", "action_items":["Resolve DB latency"]}`
+            },
+        ];
+
+        // --- COMPONENTS ---
+
+        const Modal = ({ children, isOpen, onClose, title }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-semibold text-white">{title}</h2>
+                            {onClose && <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={20}/></button>}
+                        </div>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
+        const Node = ({ node, onDragStart, onPortMouseDown, onPortMouseUp, isSelected, onClick }) => {
+            const agent = AGENT_LIBRARY.find(a => a.id === node.type);
+            return (
+                <div 
+                    className={`absolute z-10 w-48 rounded-xl border p-4 cursor-pointer select-none glass-panel transition-all duration-200 ${
+                        isSelected ? 'ring-2 ring-blue-500 border-blue-500/50 shadow-blue-900/20 shadow-xl' : 'border-gray-800'
+                    } ${node.status === 'running' ? 'running-node' : ''}`}
+                    style={{ left: node.position.x, top: node.position.y }}
+                    onMouseDown={(e) => { e.stopPropagation(); onDragStart(e, node.id); }}
+                    onClick={(e) => { e.stopPropagation(); onClick(node.id); }}
+                >
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className={`p-2 rounded-lg ${agent?.bg} ${agent?.color}`}>
+                            {agent?.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-white truncate">{agent?.name}</p>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-mono">{node.id.split('-')[1].substring(0,4)}</p>
+                        </div>
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${
+                            node.status === 'done' ? 'bg-green-500' : 
+                            node.status === 'running' ? 'bg-yellow-500' : 
+                            node.status === 'error' ? 'bg-red-500' : 'bg-gray-700'
+                        }`}></div>
+                    </div>
+                    {/* Ports */}
+                    <div 
+                        className="absolute -left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-800 border border-gray-600 hover:bg-blue-500 hover:scale-125 transition-all cursor-crosshair z-20"
+                        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, node.id, 'input'); }}
+                        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(node.id, 'input'); }}
+                    ></div>
+                    <div 
+                        className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-800 border border-gray-600 hover:bg-blue-500 hover:scale-125 transition-all cursor-crosshair z-20"
+                        onMouseDown={(e) => { e.stopPropagation(); onPortMouseDown(e, node.id, 'output'); }}
+                        onMouseUp={(e) => { e.stopPropagation(); onPortMouseUp(node.id, 'output'); }}
+                    ></div>
+                </div>
+            );
+        };
+
+        const Edge = ({ edge, nodes, isIssue }) => {
+            const source = nodes.find(n => n.id === edge.source);
+            const target = nodes.find(n => n.id === edge.target);
+            if (!source || !target) return null;
+            const x1 = source.position.x + 192;
+            const y1 = source.position.y + 42;
+            const x2 = target.position.x;
+            const y2 = target.position.y + 42;
+            const dx = Math.abs(x1 - x2) * 0.5;
+            const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+            return (
+                <path d={path} fill="none" stroke={isIssue ? "#eab308" : "#374151"} strokeWidth="2" strokeDasharray={isIssue ? "4 4" : "0"} className="transition-all duration-300" />
+            );
+        };
+
+        const App = () => {
+            // --- STATE ---
+            const [apiKey, setApiKey] = useState("");
+            const [showKeyModal, setShowKeyModal] = useState(true);
+            const [nodes, setNodes] = useState([]);
+            const [edges, setEdges] = useState([]);
+            const [running, setRunning] = useState(false);
+            const [logs, setLogs] = useState([]);
+            const [tokens, setTokens] = useState({ in: 0, out: 0, calls: 0 });
+            const [goal, setGoal] = useState("");
+            const [selectedNodeId, setSelectedNodeId] = useState(null);
+            const [issues, setIssues] = useState([]);
+            const [report, setReport] = useState("");
+            
+            // Canvas Interactions
+            const [draggingId, setDraggingId] = useState(null);
+            const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+            const [connecting, setConnecting] = useState(null); // {nodeId, type}
+            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+            const canvasRef = useRef(null);
+
+            const addLog = (msg, type = 'info') => {
+                setLogs(prev => [{ time: new Date().toLocaleTimeString([], { hour12: false }), msg, type }, ...prev].slice(0, 50));
+            };
+
+            // --- LLM ENGINE ---
+            const callLLM = async (system, user) => {
+                const res = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "dangerously-allow-browser": "true" },
+                    body: JSON.stringify({ model: "claude-3-5-sonnet-20240620", max_tokens: 1000, system, messages: [{ role: "user", content: user }] })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error.message);
+                setTokens(t => ({ in: t.in + data.usage.input_tokens, out: t.out + data.usage.output_tokens, calls: t.calls + 1 }));
+                return JSON.parse(data.content[0].text.replace(/```json|```/g, "").trim());
+            };
+
+            const getExecutionOrder = () => {
+                const adj = {}; const inDegree = {}; nodes.forEach(n => { adj[n.id] = []; inDegree[n.id] = 0; });
+                edges.forEach(e => { adj[e.source].push(e.target); inDegree[e.target]++; });
+                const queue = nodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
+                const order = [];
+                while (queue.length > 0) {
+                    const u = queue.shift(); order.push(u);
+                    adj[u].forEach(v => { inDegree[v]--; if (inDegree[v] === 0) queue.push(v); });
+                }
+                return order;
+            };
+
+            const runWorkflow = async () => {
+                if (!apiKey || nodes.length === 0) return;
+                setRunning(true); setLogs([]); setReport("");
+                addLog(`🚀 Starting Intelligence Loop: "${goal || "System Health Check"}"`, "info");
+                try {
+                    const order = getExecutionOrder();
+                    let context = "";
+                    for (const id of order) {
+                        const node = nodes.find(n => n.id === id);
+                        if (!node) continue;
+                        const agent = AGENT_LIBRARY.find(a => a.id === node.type);
+                        setNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'running' } : n));
+                        addLog(`Executing ${agent.name}...`, "agent");
+                        const result = await callLLM(agent.prompt, `Context: ${context}\nObjective: ${goal}`);
+                        setNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'done', lastOutput: result } : n));
+                        context += `\n${agent.name} Output: ${JSON.stringify(result)}`;
+                        addLog(`${agent.name} done.`, "success");
+                    }
+                    const sync = AGENT_LIBRARY.find(a => a.id === 'synthesizer-agent');
+                    const rep = await callLLM(sync.prompt, `Summarize this workflow results: ${context}`);
+                    setReport(rep.executive_summary);
+                    addLog("Workflow Complete.", "success");
+                } catch (e) {
+                    addLog(`Error: ${e.message}`, "error");
+                    setNodes(prev => prev.map(n => n.status === 'running' ? { ...n, status: 'error' } : n));
+                } finally { setRunning(false); }
+            };
+
+            // --- CANVAS HANDLERS ---
+            const handleMouseMove = (e) => {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                setMousePos({ x, y });
+                if (draggingId) {
+                    setNodes(prev => prev.map(n => n.id === draggingId ? { ...n, position: { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } } : n));
+                }
+            };
+
+            const addNode = (type) => {
+                const name = AGENT_LIBRARY.find(a => a.id === type).name;
+                setNodes(prev => [...prev, { id: `${type}-${Date.now()}`, type, status: 'idle', position: { x: 100, y: 100 + prev.length * 40 }, lastOutput: null }]);
+            };
+
+            const startPortDrag = (e, nodeId, type) => {
+                setConnecting({ nodeId, type });
+            };
+
+            const endPortDrag = (nodeId, type) => {
+                if (connecting && connecting.nodeId !== nodeId && connecting.type !== type) {
+                    const source = connecting.type === 'output' ? connecting.nodeId : nodeId;
+                    const target = connecting.type === 'input' ? connecting.nodeId : nodeId;
+                    if (!edges.find(e => e.source === source && e.target === target)) {
+                        setEdges(prev => [...prev, { source, target }]);
+                    }
+                }
+                setConnecting(null);
+            };
+
+            // --- RENDER ---
+            const selectedNode = nodes.find(n => n.id === selectedNodeId);
+
+            return (
+                <div className="flex flex-col h-screen overflow-hidden text-sm selection:bg-blue-500/30">
+                    {/* Header */}
+                    <header className="h-14 border-b border-gray-800 bg-gray-900 flex items-center justify-between px-6 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-600 p-1.5 rounded-lg"><Cpu size={20} className="text-white"/></div>
+                            <div>
+                                <h1 className="font-bold text-white tracking-tight">SAAP <span className="text-blue-500">n8n-Engine</span></h1>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">Enterprise Agent Orchestrator</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <div className="flex gap-4 text-xs font-mono">
+                                <div className="text-right"><p className="text-[10px] text-gray-500">TOKENS</p><p className="text-blue-400 capitalize">{(tokens.in + tokens.out).toLocaleString()}</p></div>
+                                <div className="text-right"><p className="text-[10px] text-gray-500">CALLS</p><p className="text-purple-400">{tokens.calls}</p></div>
+                            </div>
+                            <button onClick={() => setShowKeyModal(true)} className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-md transition-all">
+                                <Settings size={14}/><span>{apiKey ? "••••••••" : "Set API Key"}</span>
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-1 overflow-hidden">
+                        {/* Library */}
+                        <aside className="w-64 border-r border-gray-800 bg-gray-950 p-4 overflow-y-auto">
+                            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Agent Library</h3>
+                            <div className="space-y-1.5">
+                                {AGENT_LIBRARY.map(agent => (
+                                    <button key={agent.id} onClick={() => addNode(agent.id)} className="w-full flex items-center gap-3 p-2 rounded-lg border border-gray-800/50 hover:border-gray-700 bg-gray-900/30 hover:bg-gray-900 group transition-all text-left">
+                                        <div className={`p-1.5 rounded-md ${agent.bg} ${agent.color}`}>{agent.icon}</div>
+                                        <span className="text-gray-300 text-xs font-medium">{agent.name}</span>
+                                        <Plus size={12} className="ml-auto text-gray-600 group-hover:text-white"/>
+                                    </button>
+                                ))}
+                            </div>
+                        </aside>
+
+                        {/* Canvas */}
+                        <main 
+                            ref={canvasRef}
+                            className="flex-1 relative bg-[#020617] canvas-grid overflow-hidden outline-none cursor-default"
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={() => { setDraggingId(null); setConnecting(null); }}
+                        >
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                                {edges.map((e, i) => <Edge key={i} edge={e} nodes={nodes} />)}
+                                {connecting && (
+                                    <line 
+                                        x1={connecting.type === 'output' ? nodes.find(n => n.id === connecting.nodeId).position.x + 192 : mousePos.x}
+                                        y1={connecting.type === 'output' ? nodes.find(n => n.id === connecting.nodeId).position.y + 42 : mousePos.y}
+                                        x2={connecting.type === 'input' ? nodes.find(n => n.id === connecting.nodeId).position.x : mousePos.x}
+                                        y2={connecting.type === 'input' ? nodes.find(n => n.id === connecting.nodeId).position.y + 42 : mousePos.y}
+                                        stroke="#3b82f6" strokeWidth="2" strokeDasharray="4 4"
+                                    />
+                                )}
+                            </svg>
+                            {nodes.map(node => (
+                                <Node 
+                                    key={node.id} 
+                                    node={node} 
+                                    isSelected={selectedNodeId === node.id}
+                                    onClick={setSelectedNodeId}
+                                    onDragStart={(e, id) => { setDraggingId(id); setDragOffset({ x: e.clientX - nodes.find(n => n.id === id).position.x, y: e.clientY - nodes.find(n => n.id === id).position.y }); }}
+                                    onPortMouseDown={startPortDrag}
+                                    onPortMouseUp={endPortDrag}
+                                />
+                            ))}
+                            
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 flex gap-2">
+                                <input type="text" value={goal} onChange={e => setGoal(e.target.value)} placeholder="System Objective..." className="flex-1 bg-gray-900 border border-gray-700/50 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500/50 text-white shadow-2xl transition-all"/>
+                                <button onClick={runWorkflow} disabled={running || !apiKey} className="bg-blue-600 hover:bg-blue-500 text-white px-6 rounded-xl font-bold flex items-center gap-2 shadow-xl shadow-blue-900/20 active:scale-95 transition-all">
+                                    <Play size={16} fill="currentColor"/> {running ? "Running..." : "Execute"}
+                                </button>
+                            </div>
+                        </main>
+
+                        {/* Logs & Output Drawer */}
+                        <aside className="w-80 border-l border-gray-800 bg-gray-950 flex flex-col">
+                            <div className="flex-1 flex flex-col overflow-hidden">
+                                <div className="p-3 border-b border-gray-800 bg-gray-900/50 flex items-center gap-2">
+                                    <Terminal size={12} className="text-blue-500"/><span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Live Stream</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] space-y-1.5 scroll-smooth flex flex-col-reverse">
+                                    {logs.map((log, i) => (
+                                        <div key={i} className="flex gap-2">
+                                            <span className="text-gray-600 shrink-0">[{log.time}]</span>
+                                            <span className={log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'agent' ? 'text-blue-400' : 'text-gray-400'}>{log.msg}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {selectedNode && (
+                                <div className="h-2/3 border-t border-gray-800 bg-gray-900/80 backdrop-blur-xl animate-in slide-in-from-bottom flex flex-col overflow-hidden shadow-2xl">
+                                    <div className="p-3 border-b border-gray-800 flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                            <div className={`w-1.5 h-1.5 rounded-full ${selectedNode.status === 'done' ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                                            Output Explorer
+                                        </span>
+                                        <button onClick={() => setSelectedNodeId(null)} className="text-gray-500 hover:text-white"><X size={14}/></button>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-4">
+                                        {selectedNode.lastOutput ? (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className="p-3 bg-gray-800 rounded-xl border border-gray-700">
+                                                        {AGENT_LIBRARY.find(a => a.id === selectedNode.type).icon}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-white uppercase text-xs tracking-tight">{AGENT_LIBRARY.find(a => a.id === selectedNode.type).name}</h4>
+                                                        <p className="text-[10px] text-gray-500">Analysis completed successfully</p>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {Object.entries(selectedNode.lastOutput).map(([key, val]) => (
+                                                        <div key={key} className="bg-black/30 p-2.5 rounded-lg border border-gray-800/50">
+                                                            <p className="text-[9px] text-gray-500 uppercase font-bold mb-1">{key.replace(/_/g, ' ')}</p>
+                                                            <p className="text-xs text-gray-300">{typeof val === 'object' ? JSON.stringify(val) : val.toString()}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="h-full flex flex-col items-center justify-center opacity-40 italic text-xs">
+                                                <Layers className="mb-2"/> No output recorded yet
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </aside>
+                    </div>
+
+                    <footer className="h-10 border-t border-gray-800 bg-gray-900 flex items-center justify-between px-6 shrink-0 z-10 text-[10px] text-gray-500">
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></span>
+                            SAAP V5.5 Engine Online | {edges.length} Connections Active
+                        </div>
+                        {report && <div className="flex-1 mx-8 truncate text-blue-400 font-medium">Summary: {report}</div>}
+                    </footer>
+
+                    <Modal isOpen={showKeyModal} onClose={apiKey ? () => setShowKeyModal(false) : null} title="Anthropic API Key">
+                        <div className="space-y-4">
+                            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-ant-..." className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white outline-none focus:border-blue-500/50 transition-all"/>
+                            <button onClick={() => apiKey && setShowKeyModal(false)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition-all" disabled={!apiKey}>Save & Initialize</button>
+                        </div>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
