@@ -6633,13 +6633,12 @@ def build_omega_html(groq_key: str) -> str:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 html = f.read()
-            if groq_key:
-                # Inject the key into the window object using safe string concat
-                inject_str = (
-                    '<script type="text/babel">\n'
-                    '        window.INJECTED_GROQ_KEY = "' + groq_key + '";'
-                )
-                html = html.replace('<script type="text/babel">', inject_str)
+            # Always inject key — replace the first <script> tag that contains GROQ_KEY
+            safe_key = groq_key.replace('"', '').replace("'", "").replace(";", "") if groq_key else ""
+            inject_block = f'<script>\nwindow.INJECTED_GROQ_KEY = "{safe_key}";\n'
+            # Replace first plain <script> tag (not type=module etc)
+            import re as _re
+            html = _re.sub(r'<script>', inject_block, html, count=1)
             return html
         except Exception as e:
             return f"<h3>Error loading omega_agent.html: {str(e)}</h3>"
@@ -6844,10 +6843,93 @@ def init_chat_db():
         org_members_list
     )
 
+    # Real user accounts table (login system)
+    c.execute("""CREATE TABLE IF NOT EXISTS chat_user_accounts (
+        username     TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        member_id    TEXT NOT NULL,
+        role         TEXT DEFAULT '',
+        department   TEXT DEFAULT '',
+        avatar_color TEXT DEFAULT '#3b82f6',
+        is_admin     INTEGER DEFAULT 0,
+        created_at   TEXT DEFAULT (datetime('now')),
+        last_login   TEXT DEFAULT ''
+    )""")
+
+    import hashlib as _hl
+    def _h(pw): return _hl.sha256(pw.encode()).hexdigest()
+    default_accounts = [
+        ("alex",   "Alex Chen",       _h("alex123"),   "chat-1", "Engineering Lead",  "Engineering", "#3b82f6", 0),
+        ("priya",  "Priya Sharma",    _h("priya123"),  "chat-2", "Product Manager",   "Product",     "#8b5cf6", 0),
+        ("marcus", "Marcus Johnson",  _h("marcus123"), "chat-3", "Data Analyst",      "Analytics",   "#22c55e", 0),
+        ("sofia",  "Sofia Rodriguez", _h("sofia123"),  "chat-4", "CRM Manager",       "Sales",       "#f59e0b", 0),
+        ("liam",   "Liam Patel",      _h("liam123"),   "chat-5", "DevOps Engineer",   "Engineering", "#ef4444", 0),
+        ("admin",  "Admin",           _h("admin123"),  "chat-1", "Administrator",     "Admin",       "#f97316", 1),
+    ]
+    c.executemany(
+        "INSERT OR IGNORE INTO chat_user_accounts (username,display_name,password_hash,member_id,role,department,avatar_color,is_admin) VALUES (?,?,?,?,?,?,?,?)",
+        default_accounts
+    )
+
     conn.commit()
     conn.close()
 
 init_chat_db()
+
+# Auth helpers
+
+def chat_auth_login(username: str, password: str):
+    import hashlib
+    pw_hash = hashlib.sha256(password.encode()).hexdigest()
+    with db() as c:
+        row = c.execute(
+            "SELECT * FROM chat_user_accounts WHERE username=? AND password_hash=?",
+            (username.strip().lower(), pw_hash)
+        ).fetchone()
+    if row:
+        d = dict(row)
+        with db() as c:
+            c.execute("UPDATE chat_user_accounts SET last_login=datetime('now') WHERE username=?", (d["username"],))
+            c.execute("UPDATE chat_profiles SET last_active=datetime('now') WHERE member_id=?", (d["member_id"],))
+        return d
+    return None
+
+def chat_auth_register(username: str, display_name: str, password: str, role: str, dept: str, color: str):
+    import hashlib
+    uname = username.strip().lower()
+    if not uname or len(uname) < 3:
+        return False, "Username must be at least 3 characters"
+    if not display_name.strip():
+        return False, "Display name required"
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters"
+    try:
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        member_id = "chat-" + str(uuid.uuid4())[:8]
+        with db() as c:
+            c.execute(
+                "INSERT INTO chat_user_accounts (username,display_name,password_hash,member_id,role,department,avatar_color) VALUES (?,?,?,?,?,?,?)",
+                (uname, display_name.strip(), pw_hash, member_id, role.strip(), dept.strip(), color)
+            )
+            c.execute(
+                "INSERT OR IGNORE INTO chat_profiles (member_id,display_name,role,department,avatar_color) VALUES (?,?,?,?,?)",
+                (member_id, display_name.strip(), role.strip(), dept.strip(), color)
+            )
+        return True, {"username": uname, "display_name": display_name.strip(), "member_id": member_id,
+                      "role": role.strip(), "department": dept.strip(), "avatar_color": color, "is_admin": 0}
+    except Exception as e:
+        if "UNIQUE" in str(e):
+            return False, "Username already taken"
+        return False, str(e)
+
+def chat_get_online_users(minutes: int = 5):
+    with db() as c:
+        rows = c.execute(
+            "SELECT * FROM chat_profiles WHERE last_active >= datetime('now', ?) ORDER BY last_active DESC",
+            (f"-{minutes} minutes",)
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 # ─── Chat CRUD ──────────────────────────────────────────────────────────────────
 
@@ -6993,30 +7075,77 @@ def run_routed_agent(api_key: str, agent_id: str, task: str) -> dict:
 if page == "org_chat":
     import streamlit.components.v1 as components
 
-    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">💬 SECTION 8 — ORG CHAT + AI AGENT</span>', unsafe_allow_html=True)
-    st.title("💬 Organisation Chat Hub")
-    st.caption("All members · Persistent database · AI Analyser Agent with automatic routing")
+    st.markdown('<span style="background:rgba(6,182,212,.12);color:#22d3ee;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(6,182,212,.3);text-transform:uppercase;">SECTION 8 — ORG CHAT + AI AGENT</span>', unsafe_allow_html=True)
+    st.title("Organisation Chat Hub")
 
-    # ── Identity selector (who am I) ────────────────────────────────────────────
-    profiles = chat_get_profiles()
-    member_options = {p["display_name"]: p for p in profiles if p["member_id"] != "chat-6"}
-    if "chat_identity" not in st.session_state:
-        st.session_state.chat_identity = list(member_options.keys())[0]
+    # Real Login wall
+    if "chat_user" not in st.session_state:
+        st.session_state.chat_user = None
+
+    if st.session_state.chat_user is None:
+        st.caption("Sign in to chat. Two users from different devices share the same database in real time.")
+        st.markdown("---")
+        login_tab, reg_tab = st.tabs(["Sign In", "Register"])
+
+        with login_tab:
+            st.info("Default accounts: alex/alex123 · priya/priya123 · marcus/marcus123 · sofia/sofia123 · liam/liam123 · admin/admin123")
+            lu = st.text_input("Username", key="login_u")
+            lp = st.text_input("Password", type="password", key="login_p")
+            if st.button("Sign In", type="primary", key="do_login"):
+                if lu and lp:
+                    user = chat_auth_login(lu, lp)
+                    if user:
+                        st.session_state.chat_user = user
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
+                else:
+                    st.warning("Enter username and password")
+
+        with reg_tab:
+            r_col1, r_col2 = st.columns(2)
+            ru = r_col1.text_input("Username (min 3 chars)", key="reg_u")
+            rdn = r_col2.text_input("Display Name", key="reg_dn")
+            rp = r_col1.text_input("Password (min 6 chars)", type="password", key="reg_p")
+            rrole = r_col2.text_input("Role", key="reg_role", placeholder="e.g. Engineer")
+            rdept = r_col1.text_input("Department", key="reg_dept", placeholder="e.g. Engineering")
+            rcolor = r_col2.color_picker("Avatar Color", "#3b82f6", key="reg_color")
+            if st.button("Create Account", type="primary", key="do_register"):
+                ok, result = chat_auth_register(ru, rdn, rp, rrole, rdept, rcolor)
+                if ok:
+                    st.session_state.chat_user = result
+                    st.success(f"Welcome, {result['display_name']}!")
+                    st.rerun()
+                else:
+                    st.error(f"{result}")
+        st.stop()
+
+    # Logged in
+    me = st.session_state.chat_user
 
     with st.sidebar:
         st.divider()
-        st.markdown('<div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;font-family:\'JetBrains Mono\',monospace;margin-bottom:6px;">Chat Identity</div>', unsafe_allow_html=True)
-        chosen_name = st.selectbox("You are:", list(member_options.keys()), key="chat_id_sel",
-                                   index=list(member_options.keys()).index(st.session_state.chat_identity))
-        st.session_state.chat_identity = chosen_name
-        me = member_options[chosen_name]
-
-        st.markdown(f"""<div style="background:rgba({','.join(str(int(me['avatar_color'].lstrip('#')[i:i+2],16)) for i in (0,2,4))},.12);border:1px solid {me['avatar_color']}40;border-radius:8px;padding:8px 10px;margin-top:4px;">
-        <div style="font-size:.8rem;font-weight:700;color:#f0f4ff;">{me['display_name']}</div>
-        <div style="font-size:.72rem;color:#94a8c8;">{me['role']} · {me['department']}</div>
+        try:
+            r2,g2,b2 = int(me['avatar_color'][1:3],16),int(me['avatar_color'][3:5],16),int(me['avatar_color'][5:7],16)
+            bgc = f"rgba({r2},{g2},{b2},.15)"
+        except:
+            bgc = "rgba(59,130,246,.15)"
+        st.markdown(f"""<div style="background:{bgc};border:1px solid {me['avatar_color']}40;border-radius:8px;padding:8px 10px;">
+        <div style="font-size:.82rem;font-weight:700;color:#f0f4ff;">👤 {me['display_name']}</div>
+        <div style="font-size:.7rem;color:#94a8c8;">{me.get('role','')} · {me.get('department','')}</div>
+        <div style="font-size:.65rem;color:#4ade80;margin-top:2px;">● Online now</div>
         </div>""", unsafe_allow_html=True)
+        if st.button("Sign Out", key="chat_logout"):
+            st.session_state.chat_user = None
+            st.rerun()
 
-    # ── Stats bar ───────────────────────────────────────────────────────────────
+    with db() as _hb:
+        _hb.execute("UPDATE chat_profiles SET last_active=datetime('now') WHERE member_id=?", (me["member_id"],))
+
+    st.caption(f"Logged in as **{me['display_name']}** · All org members share this chat · AI routing enabled")
+
+    # Stats bar
+    stats = chat_get_stats()    # ── Stats bar ───────────────────────────────────────────────────────────────
     stats = chat_get_stats()
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("💬 Messages", stats["total_messages"])
@@ -7046,6 +7175,8 @@ if page == "org_chat":
             send_clicked = st.button("➤ Send", type="primary", use_container_width=True)
         with btn_col2:
             refresh_clicked = st.button("🔄 Refresh", use_container_width=True)
+        if refresh_clicked:
+            st.rerun()
 
         if send_clicked and new_msg.strip():
             # Post message from the selected member
@@ -7154,20 +7285,26 @@ if page == "org_chat":
         tab_mem, tab_jobs, tab_rules = st.tabs(["👥 Members", "🤖 AI Jobs", "🗺️ Routing"])
 
         with tab_mem:
-            st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Online Members</div>', unsafe_allow_html=True)
-            for p in profiles:
+            st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Members</div>', unsafe_allow_html=True)
+            all_profiles = chat_get_profiles()
+            online_ids = {u["member_id"] for u in chat_get_online_users(minutes=3)}
+            for p in all_profiles:
                 color = p.get("avatar_color", "#3b82f6")
                 initials = "".join(pt[0] for pt in p["display_name"].split()[:2]).upper()
-                is_active = p["member_id"] == me["member_id"]
-                st.markdown(f"""<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:{'rgba(59,130,246,.08)' if is_active else 'var(--surface)'};border:1px solid {'rgba(59,130,246,.25)' if is_active else 'var(--border)'};border-radius:8px;margin-bottom:4px;">
+                is_me = p["member_id"] == me["member_id"]
+                is_online = p["member_id"] in online_ids
+                dot_color = "#4ade80" if is_online else "#6b7280"
+                dot_label = "● Online" if is_online else "○ Away"
+                st.markdown(f"""<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:{'rgba(59,130,246,.08)' if is_me else 'var(--surface)'};border:1px solid {'rgba(59,130,246,.25)' if is_me else 'var(--border)'};border-radius:8px;margin-bottom:4px;">
                   <div style="width:28px;height:28px;border-radius:50%;background:{color};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;flex-shrink:0;">{initials}</div>
                   <div style="flex:1;min-width:0;">
-                    <div style="font-size:.78rem;font-weight:600;color:#f0f4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p['display_name']} {'← You' if is_active else ''}</div>
-                    <div style="font-size:.68rem;color:#94a8c8;">{p['role']}</div>
+                    <div style="font-size:.78rem;font-weight:600;color:#f0f4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p['display_name']} {'← You' if is_me else ''}</div>
+                    <div style="font-size:.68rem;color:#94a8c8;">{p['role']} · {p['department']}</div>
                   </div>
-                  <div style="font-size:.65rem;color:#4ade80;">●</div>
+                  <div style="font-size:.6rem;color:{dot_color};">{dot_label}</div>
                 </div>""", unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:6px;">{len(profiles)} members · All online</div>', unsafe_allow_html=True)
+            online_count = len(online_ids)
+            st.markdown(f'<div style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:6px;">{len(all_profiles)} members · {online_count} online now</div>', unsafe_allow_html=True)
 
         with tab_jobs:
             st.markdown('<div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Recent AI Pipeline Jobs</div>', unsafe_allow_html=True)
@@ -7309,8 +7446,14 @@ if page == "admin_db":
     st.markdown('<span style="background:rgba(249,115,22,.12);color:#fb923c;padding:4px 14px;border-radius:99px;font-size:.72rem;font-weight:700;border:1px solid rgba(249,115,22,.3);text-transform:uppercase;">🛠 SECTION 9 — ADMIN & DATABASE</span>', unsafe_allow_html=True)
     st.title("🛠 Admin Panel & Database Explorer")
 
-    adm_tab1, adm_tab2, adm_tab3, adm_tab4, adm_tab5 = st.tabs([
-        "🗄️ DB Health", "🗺️ Routing Rules", "👥 Members", "📊 Token Budget", "📥 Export"
+    # Groq key status
+    if api_key:
+        st.success(f"✅ Groq API key active — agents ready to run")
+    else:
+        st.warning("⚠️ No Groq API key — paste it in the sidebar to enable AI features. Free key at console.groq.com")
+
+    adm_tab1, adm_tab2, adm_tab3, adm_tab4, adm_tab5, adm_tab6 = st.tabs([
+        "🗄️ DB Health", "🗺️ Routing Rules", "👥 Members", "📊 Token Budget", "📥 Export", "👤 User Accounts"
     ])
 
     with adm_tab1:
@@ -7430,6 +7573,56 @@ if page == "admin_db":
                 st.success(f"{len(rows)} rows ready for download.")
             else:
                 st.warning("Table is empty.")
+
+    with adm_tab6:
+        st.subheader("User Accounts (Login System)")
+        with db() as c:
+            try:
+                accts = [dict(r) for r in c.execute(
+                    "SELECT username,display_name,role,department,is_admin,last_login,created_at FROM chat_user_accounts ORDER BY created_at"
+                ).fetchall()]
+            except:
+                accts = []
+        if accts:
+            import pandas as pd
+            st.dataframe(pd.DataFrame(accts), use_container_width=True)
+        else:
+            st.info("No user accounts yet.")
+
+        st.divider()
+        st.markdown("**Add / Reset Account**")
+        import hashlib
+        ac1, ac2 = st.columns(2)
+        new_uname = ac1.text_input("Username", key="adm_new_u")
+        new_dname = ac2.text_input("Display Name", key="adm_new_dn")
+        new_pw    = ac1.text_input("Password", type="password", key="adm_new_pw")
+        new_role  = ac2.text_input("Role", key="adm_new_role")
+        new_dept  = ac1.text_input("Department", key="adm_new_dept")
+        new_color = ac2.color_picker("Color", "#3b82f6", key="adm_new_color")
+        is_adm    = st.checkbox("Admin?", key="adm_new_is_admin")
+        if st.button("➕ Create / Reset Account", type="primary", key="adm_create_user"):
+            if new_uname and new_pw:
+                ph = hashlib.sha256(new_pw.encode()).hexdigest()
+                mid = "chat-" + str(__import__("uuid").uuid4())[:8]
+                with db() as c:
+                    c.execute("""INSERT INTO chat_user_accounts
+                        (username,display_name,password_hash,member_id,role,department,avatar_color,is_admin)
+                        VALUES (?,?,?,?,?,?,?,?)
+                        ON CONFLICT(username) DO UPDATE SET
+                            password_hash=excluded.password_hash,
+                            display_name=excluded.display_name,
+                            role=excluded.role,department=excluded.department,
+                            avatar_color=excluded.avatar_color,is_admin=excluded.is_admin""",
+                        (new_uname.lower(), new_dname or new_uname, ph, mid,
+                         new_role, new_dept, new_color, int(is_adm)))
+                    c.execute("""INSERT OR IGNORE INTO chat_profiles
+                        (member_id,display_name,role,department,avatar_color)
+                        VALUES (?,?,?,?,?)""",
+                        (mid, new_dname or new_uname, new_role, new_dept, new_color))
+                st.success(f"Account '{new_uname}' created/updated!")
+                st.rerun()
+            else:
+                st.warning("Username and password required")
 
 
 # ════════════════════════════════════════════════════════════════════════════════
