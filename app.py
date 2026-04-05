@@ -6363,17 +6363,25 @@ making automation outputs specific to YOUR organisation instead of generic AI re
 
     # ════════════════════════════════════════════════════════════════
     #  TAB 5 — RUN HISTORY
-    # ═════════════════════════════════════════════════════if page == "omega_agent":
-    st.markdown('<span style="background:#3b1f6b;color:#c084fc;padding:2px 12px;border-radius:99px;font-size:0.72rem;font-weight:bold;">Ω SECTION 7 — OMEGA AGENT v5.5</span>', unsafe_allow_html=True)
-    st.title("Ω Omega Agent — 80+ Capability Collective")
-    groq_from_sidebar = api_key or ""
-    omega_html = build_omega_html(groq_from_sidebar)
-    import streamlit.components.v1 as components
-    components.html(omega_html, height=950, scrolling=True)
-
-if page == "documentation":
-    render_section_6_docs()
-       "Status": r.get("status","?"),
+    # ════════════════════════════════════════════════════════════════
+    with hub_tabs[4]:
+        st.subheader("📊 Run History")
+        st.markdown("View all automation runs across the organisation.")
+        
+        filtered_runs = hub_get_runs(200)
+        
+        if not filtered_runs:
+            st.info("No runs recorded yet.")
+        else:
+            with st.expander("📊 Run Analytics Summary", expanded=True):
+                summary_rows = []
+                for r in filtered_runs:
+                    tu = json.loads(r.get("token_usage", "{}"))
+                    summary_rows.append({
+                        "ID": r["id"][:8],
+                        "Automation": r.get("automation_name","?"),
+                        "Run By": r.get("run_by_name","?"),
+                        "Status": r.get("status","?"),
                         "🔌 Real Calls": r.get("real_api_calls",0),
                         "Tokens": tu.get("total",0),
                         "Cost ($)": tu.get("cost_usd",0),
