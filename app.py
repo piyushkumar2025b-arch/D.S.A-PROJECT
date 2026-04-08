@@ -368,11 +368,11 @@ st.markdown("""
         transition: opacity 0.25s;
     }
     .agent-card:hover {
-        border-color: var(--border3);
-        transform: translateY(-3px);
-        box-shadow: var(--glow-blue);
+        border-color: var(--blue-dim);
+        transform: translateY(-4px) scale(1.01);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.5), var(--glow-blue);
     }
-    .agent-card:hover::after { opacity: 1; }
+    .agent-card:hover::after { opacity: 1; transform: scaleX(1); }
     .agent-card-active { background: rgba(30,60,150,0.15); border: 2px solid var(--blue) !important; box-shadow: var(--glow-blue); }
     .agent-card-running { background: rgba(255,179,64,0.07); border: 2px solid var(--amber) !important; box-shadow: var(--glow-amber); }
     .agent-card-done    { background: rgba(16,232,126,0.06); border: 2px solid var(--green) !important; box-shadow: var(--glow-green); }
@@ -960,6 +960,251 @@ st.markdown("""
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border3); }
+
+    /* ── SIDEBAR UPGRADE ─────────────────────────────────────────── */
+    .stSidebar [data-testid="stRadio"] label {
+        color: var(--text2) !important;
+        font-size: 0.85rem !important;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 500;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: all 0.15s;
+        display: block;
+    }
+    .stSidebar [data-testid="stRadio"] label:hover {
+        color: var(--text) !important;
+        background: rgba(79,142,247,0.07);
+    }
+    .stSidebar [data-testid="stRadio"] [aria-checked="true"] + label,
+    .stSidebar [data-testid="stRadio"] input:checked + div label {
+        color: var(--blue-bright) !important;
+        background: rgba(79,142,247,0.1);
+    }
+    .stSidebar [data-testid="stVerticalBlock"] { gap: 2px !important; }
+    .stSidebar .stMetric {
+        padding: 10px 14px !important;
+        border-radius: 10px !important;
+    }
+    .stSidebar .stMetric [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+
+    /* ── N8N WORKFLOW CARDS ──────────────────────────────────────── */
+    .n8n-workflow-row {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px 20px;
+        margin: 6px 0;
+        transition: all 0.22s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
+    }
+    .n8n-workflow-row::before {
+        content: "";
+        position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+        background: linear-gradient(180deg, var(--blue), var(--cyan));
+        opacity: 0;
+        transition: opacity 0.22s;
+    }
+    .n8n-workflow-row:hover { border-color: var(--border2); transform: translateX(3px); }
+    .n8n-workflow-row:hover::before { opacity: 1; }
+
+    .n8n-node-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        color: var(--text2);
+        font-family: 'JetBrains Mono', monospace;
+        transition: all 0.15s;
+    }
+    .n8n-node-chip:hover { border-color: var(--blue); color: var(--blue-bright); }
+
+    /* ── STAT CARDS (new) ────────────────────────────────────────── */
+    .stat-card-lg {
+        background: linear-gradient(135deg, var(--surface), var(--surface2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        padding: 26px 28px;
+        position: relative; overflow: hidden;
+        transition: all 0.25s ease;
+    }
+    .stat-card-lg::after {
+        content: "";
+        position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan), var(--purple));
+        opacity: 0.5;
+    }
+    .stat-card-lg:hover { border-color: var(--border3); transform: translateY(-3px); box-shadow: var(--glow-blue); }
+
+    /* ── TOAST / NOTIFICATION STYLE ──────────────────────────────── */
+    .toast-success {
+        background: rgba(16,232,126,0.08);
+        border: 1px solid rgba(16,232,126,0.3);
+        border-left: 3px solid var(--green);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        color: var(--green);
+        font-size: 0.88rem;
+        font-family: 'Outfit', sans-serif;
+        animation: fadeInUp 0.3s ease-out;
+    }
+    .toast-error {
+        background: rgba(255,71,87,0.08);
+        border: 1px solid rgba(255,71,87,0.3);
+        border-left: 3px solid var(--red);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        color: var(--red);
+        font-size: 0.88rem;
+        font-family: 'Outfit', sans-serif;
+        animation: fadeInUp 0.3s ease-out;
+    }
+
+    /* ── TABLE UPGRADE ───────────────────────────────────────────── */
+    .saap-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 4px;
+        font-family: 'Outfit', sans-serif;
+    }
+    .saap-table thead th {
+        background: var(--surface2);
+        color: var(--text3);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border2);
+    }
+    .saap-table tbody tr {
+        background: var(--surface);
+        transition: background 0.15s;
+    }
+    .saap-table tbody tr:hover { background: var(--surface2); }
+    .saap-table tbody td {
+        padding: 10px 14px;
+        color: var(--text2);
+        font-size: 0.85rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* ── SECTION HEADER BANNER ───────────────────────────────────── */
+    .section-banner {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px 22px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        position: relative;
+        overflow: hidden;
+    }
+    .section-banner::before {
+        content: "";
+        position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background: linear-gradient(180deg, var(--blue), var(--cyan));
+    }
+
+    /* ── IMPROVED HERO STATS BAR ─────────────────────────────────── */
+    .hero-stats-bar {
+        display: flex;
+        justify-content: center;
+        align-items: stretch;
+        gap: 0;
+        background: rgba(255,255,255,0.025);
+        border: 1px solid rgba(79,142,247,0.12);
+        border-radius: 18px;
+        padding: 20px 0;
+        flex-wrap: wrap;
+        max-width: 820px;
+        margin: 0 auto;
+        backdrop-filter: blur(12px);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    /* ── RUN HISTORY CARDS ───────────────────────────────────────── */
+    .run-history-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin: 5px 0;
+        font-family: 'Outfit', sans-serif;
+        transition: border-color 0.2s;
+    }
+    .run-history-card:hover { border-color: var(--border2); }
+    .run-history-card.success { border-left: 3px solid var(--green); }
+    .run-history-card.partial { border-left: 3px solid var(--amber); }
+    .run-history-card.failed  { border-left: 3px solid var(--red); }
+
+    /* ── HIDE STREAMLIT BRANDING ─────────────────────────────────── */
+    #MainMenu, footer, header { visibility: hidden; }
+    .stDeployButton { display: none; }
+
+    /* ── CHAT MESSAGES ───────────────────────────────────────────── */
+    [data-testid="stChatMessage"] {
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius-lg) !important;
+        margin: 6px 0 !important;
+    }
+    [data-testid="stChatInput"] textarea {
+        background: var(--surface) !important;
+        border: 1px solid var(--border2) !important;
+        border-radius: var(--radius) !important;
+        color: var(--text) !important;
+    }
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: var(--blue) !important;
+        box-shadow: 0 0 0 3px rgba(79,142,247,0.1) !important;
+    }
+
+    /* ── FORM SUBMIT BUTTON ──────────────────────────────────────── */
+    [data-testid="stFormSubmitButton"] button {
+        background: linear-gradient(135deg, #1a3fc4, #2563eb, #3b82f6) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 20px rgba(79,142,247,0.35) !important;
+    }
+    [data-testid="stFormSubmitButton"] button:hover {
+        background: linear-gradient(135deg, #2563eb, #3b82f6, #60a5fa) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 30px rgba(79,142,247,0.45) !important;
+    }
+
+    /* ── SLIDER ──────────────────────────────────────────────────── */
+    .stSlider [data-baseweb="slider"] div[role="slider"] {
+        background: var(--blue) !important;
+        box-shadow: 0 0 12px rgba(79,142,247,0.5) !important;
+    }
+
+    /* ── ADDITIONAL ANIMATIONS ───────────────────────────────────── */
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-6px); }
+    }
+    @keyframes border-glow {
+        0%, 100% { border-color: rgba(79,142,247,0.3); }
+        50% { border-color: rgba(79,142,247,0.7); }
+    }
+    @keyframes count-up {
+        from { opacity: 0; transform: scale(0.8); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    .float-anim { animation: float 4s ease-in-out infinite; }
+    .border-glow-anim { animation: border-glow 3s ease-in-out infinite; }
+    .count-up { animation: count-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -2514,31 +2759,38 @@ def render_hero_dashboard():
     tasks = get_tasks(500)
     n_done = sum(1 for t in tasks if t["status"]=="COMPLETED")
     n_fail = sum(1 for t in tasks if t["status"]=="FAILED")
+    n_pend = sum(1 for t in tasks if t["status"]=="PENDING")
     success_rate = round(100 * n_done / max(len(tasks),1), 1)
     budget = get_daily_budget_stats()
     org_runs = get_org_workflow_runs(5)
+    n8n_wfs = n8n_get_workflows() if callable(globals().get("n8n_get_workflows")) else []
     sr_color = "#10e87e" if success_rate >= 80 else "#ffb340" if success_rate >= 60 else "#ff4757"
+    uptime = get_platform_uptime()
 
+    # ── Hero Banner ──────────────────────────────────────────────────────────
     st.markdown(f'''
-    <div class="hero-header">
+    <div class="hero-header fade-in">
         <div style="position:relative;z-index:1;">
-            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:99px;padding:6px 20px;margin-bottom:20px;">
+            <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:99px;padding:6px 20px;margin-bottom:22px;">
                 <span style="width:8px;height:8px;background:#10e87e;border-radius:50%;display:inline-block;box-shadow:0 0 12px #10e87e;animation:pulse 2s infinite;"></span>
                 <span style="color:rgba(79,142,247,0.9);font-size:0.7rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">ALL SYSTEMS OPERATIONAL · v5.6</span>
             </div>
-            <h1 style="color:#eef2ff;margin:0 0 8px;font-size:3.6rem;font-weight:900;letter-spacing:-0.05em;font-family:'Outfit',sans-serif;line-height:1.05;text-shadow:0 0 60px rgba(79,142,247,0.25);">SAAP COMMAND CENTER</h1>
-            <p style="color:rgba(139,163,196,0.85);font-size:1.05rem;margin:0 0 36px;font-weight:400;letter-spacing:0.01em;">Smart Autonomous Agent Platform &nbsp;·&nbsp; Enterprise AI Orchestration &nbsp;·&nbsp; 12 Live Agents</p>
-            <div style="display:flex;justify-content:center;align-items:stretch;gap:0;background:rgba(255,255,255,0.025);border:1px solid rgba(79,142,247,0.1);border-radius:18px;padding:20px 0;flex-wrap:wrap;max-width:760px;margin:0 auto;backdrop-filter:blur(10px);">
+            <h1 style="color:#eef2ff;margin:0 0 10px;font-size:3.8rem;font-weight:900;letter-spacing:-0.05em;font-family:'Outfit',sans-serif;line-height:1.0;text-shadow:0 0 80px rgba(79,142,247,0.3);">SAAP COMMAND CENTER</h1>
+            <p style="color:rgba(139,163,196,0.85);font-size:1.05rem;margin:0 0 38px;font-weight:400;letter-spacing:0.01em;">Smart Autonomous Agent Platform &nbsp;·&nbsp; Enterprise AI Orchestration &nbsp;·&nbsp; 12 Live Agents</p>
+            <div class="hero-stats-bar count-up">
                 <div class="hero-stat"><div class="hero-stat-value">{len(tasks)}</div><div class="hero-stat-label">Total Tasks</div></div>
                 <div class="hero-stat"><div class="hero-stat-value" style="color:{sr_color};">{success_rate}%</div><div class="hero-stat-label">Success Rate</div></div>
-                <div class="hero-stat"><div class="hero-stat-value" style="font-size:1.5rem;letter-spacing:-0.02em;">{get_platform_uptime()}</div><div class="hero-stat-label">Uptime</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="color:#10e87e;">{n_done}</div><div class="hero-stat-label">Completed</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="color:#ff4757;">{n_fail}</div><div class="hero-stat-label">Failed</div></div>
+                <div class="hero-stat"><div class="hero-stat-value" style="font-size:1.4rem;letter-spacing:-0.02em;">{uptime}</div><div class="hero-stat-label">Uptime</div></div>
                 <div class="hero-stat"><div class="hero-stat-value" style="color:#ffb340;">{len(org_runs)}</div><div class="hero-stat-label">Org Workflows</div></div>
-                <div class="hero-stat" style="border-right:none;"><div class="hero-stat-value" style="color:#a78bfa;">{budget["total"]:,}</div><div class="hero-stat-label">Tokens Today</div></div>
+                <div class="hero-stat" style="border-right:none;"><div class="hero-stat-value" style="color:#a78bfa;font-size:1.5rem;">{budget["total"]:,}</div><div class="hero-stat-label">Tokens Today</div></div>
             </div>
         </div>
     </div>
     ''', unsafe_allow_html=True)
 
+    # ── Main two-column layout ───────────────────────────────────────────────
     c1, c2 = st.columns([3, 2])
     with c1:
         st.markdown('''<div style="background:linear-gradient(135deg,#0a1120,#0e1829);border:1px solid #162034;border-radius:20px;padding:28px;position:relative;overflow:hidden;">
@@ -2557,34 +2809,46 @@ def render_hero_dashboard():
         </div>''', unsafe_allow_html=True)
 
     with c2:
-        st.markdown('''<div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;font-weight:600;">📊 Intelligence Panel</div>''', unsafe_allow_html=True)
         most_used = Counter(t["agent_name"] for t in tasks).most_common(1)
         mu_name = most_used[0][0] if most_used else "N/A"
         mu_count = most_used[0][1] if most_used else 0
+        cost_color = "#10e87e" if budget["cost"] < 0.05 else "#ffb340" if budget["cost"] < 0.20 else "#ff4757"
+        remaining_pct = round(100 * (1 - budget["total"] / max(DAILY_TOKEN_BUDGET, 1)), 1)
+
         st.markdown(f'''
+        <div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:10px;font-weight:600;">📊 Intelligence Panel</div>
         <div class="metric-card" style="margin-bottom:8px;">
             <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">🏆 Top Agent</div>
             <div style="color:#eef2ff;font-weight:700;font-size:0.95rem;">{mu_name}</div>
             <div style="color:#4a6280;font-size:0.78rem;margin-top:2px;">{mu_count} executions</div>
         </div>
         <div class="metric-card" style="margin-bottom:8px;">
-            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">⚡ Execution</div>
-            <div><span style="color:#10e87e;font-weight:700;">✅ {n_done}</span> &nbsp;<span style="color:#4a6280;">|</span>&nbsp; <span style="color:#ff4757;font-weight:700;">❌ {n_fail}</span></div>
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">⚡ Execution Breakdown</div>
+            <div style="display:flex;gap:12px;align-items:center;">
+                <span style="color:#10e87e;font-weight:700;font-size:1.1rem;">✅ {n_done}</span>
+                <span style="color:#ff4757;font-weight:700;font-size:1.1rem;">❌ {n_fail}</span>
+                <span style="color:#ffb340;font-weight:700;font-size:1.1rem;">⏳ {n_pend}</span>
+            </div>
         </div>
         <div class="metric-card" style="margin-bottom:8px;">
             <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">💰 Cost Today</div>
-            <div style="color:#ffb340;font-weight:700;font-size:1.1rem;">${budget["cost"]:.4f}</div>
+            <div style="color:{cost_color};font-weight:700;font-size:1.2rem;">${budget["cost"]:.4f}</div>
+            <div style="margin-top:6px;background:rgba(255,255,255,0.04);border-radius:99px;height:4px;overflow:hidden;">
+                <div style="height:4px;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:99px;width:{min(100*budget["total"]/max(DAILY_TOKEN_BUDGET,1),100):.1f}%;transition:width 0.5s;"></div>
+            </div>
+            <div style="font-size:0.7rem;color:#4a6280;margin-top:4px;">{remaining_pct}% budget remaining</div>
+        </div>
+        <div class="metric-card">
+            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">⚙️ n8n Workflows</div>
+            <div style="color:#a78bfa;font-weight:700;font-size:1.1rem;">{len(n8n_wfs)} configured</div>
+            <div style="color:#4a6280;font-size:0.78rem;margin-top:2px;">{sum(1 for w in n8n_wfs if w.get("active",1))} active</div>
         </div>
         ''', unsafe_allow_html=True)
-        if org_runs:
-            st.markdown(f'''<div class="metric-card">
-            <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">🏢 Last Org Run</div>
-            <div style="color:#8ba3c4;font-size:0.84rem;">{org_runs[0]["created_at"][:16]}</div>
-        </div>''', unsafe_allow_html=True)
 
     st.divider()
-    st.markdown('''<div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:16px;font-weight:600;">🚀 Quick Launch Agent Portal</div>''', unsafe_allow_html=True)
 
+    # ── Quick Launch Grid ────────────────────────────────────────────────────
+    st.markdown('''<div style="font-size:0.72rem;color:rgba(79,142,247,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:16px;font-weight:600;">🚀 Quick Launch Agent Portal</div>''', unsafe_allow_html=True)
     CAT_GRADIENTS = {
         "Google Workspace": ("rgba(66,133,244,0.12)", "#4285F4"),
         "Dev Tools":        ("rgba(16,232,126,0.08)", "#10e87e"),
@@ -2606,18 +2870,19 @@ def render_hero_dashboard():
 
     st.divider()
 
+    # ── What's New + Getting Started ────────────────────────────────────────
     col_new, col_start = st.columns(2)
     with col_new:
         st.markdown('''<div style="background:linear-gradient(135deg,#0a1120,#0e1829);border:1px solid #162034;border-radius:20px;padding:24px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.4),transparent);"></div>
         <div style="font-size:0.72rem;color:rgba(0,212,255,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:14px;font-weight:600;">🆕 What's New in v5.6</div>
         <div style="color:#8ba3c4;font-size:0.88rem;line-height:1.9;">
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Section 5 Hub</strong> — Google OAuth login, real API verification<br/>
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Google AI Agents</strong> — Gemini AI, Search, Vertex AI, Sheets Live<br/>
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Analytics</strong> — Token budget tracking, leaderboard, CSV export<br/>
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Knowledge Base</strong> — AI research assistant, search & filter<br/>
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Research Analyst</strong> — Comparison mode, 6 analysis modes<br/>
-        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Org Chat</strong> — Real-time multi-user AI-routed chat system<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Section 6 n8n Hub</strong> — Real DB-backed workflow engine<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Build & Edit Workflows</strong> — 17 node types, 6-step pipelines<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Run History</strong> — Full audit trail with token tracking<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Section 5 Hub</strong> — Google OAuth, real API verification<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Analytics</strong> — Token budget, leaderboard, CSV export<br/>
+        <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Org Chat</strong> — Real-time multi-user AI-routed chat<br/>
         <span style="color:#00d4ff;">▸</span> <strong style="color:#eef2ff;">Activity Feed</strong> — Cross-section real-time event bus
         </div></div>''', unsafe_allow_html=True)
 
@@ -2627,11 +2892,11 @@ def render_hero_dashboard():
         <div style="font-size:0.72rem;color:rgba(16,232,126,0.7);text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:14px;font-weight:600;">🧭 Getting Started</div>
         <div style="color:#8ba3c4;font-size:0.88rem;line-height:2.0;">
         <span style="color:#10e87e;font-weight:700;">01</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Get Groq API Key</span> <span style="color:#4a6280;">(free) → console.groq.com</span><br/>
-        <span style="color:#10e87e;font-weight:700;">02</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 4 — Org Mode</span> <span style="color:#4a6280;">Run 12 agents</span><br/>
-        <span style="color:#10e87e;font-weight:700;">03</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 2 — Research</span> <span style="color:#4a6280;">Deep AI research</span><br/>
+        <span style="color:#10e87e;font-weight:700;">02</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 4 — Org Mode</span> <span style="color:#4a6280;">Run 12 real agents</span><br/>
+        <span style="color:#10e87e;font-weight:700;">03</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 6 — n8n Hub</span> <span style="color:#4a6280;">Build & run workflows</span><br/>
         <span style="color:#10e87e;font-weight:700;">04</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 5 — Live Hub</span> <span style="color:#4a6280;">Connect real APIs</span><br/>
         <span style="color:#10e87e;font-weight:700;">05</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Section 8 — Org Chat</span> <span style="color:#4a6280;">Multi-user AI chat</span><br/>
-        <span style="color:#10e87e;font-weight:700;">06</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Analytics Dashboard</span> <span style="color:#4a6280;">Monitor & export</span>
+        <span style="color:#10e87e;font-weight:700;">06</span> &nbsp;<span style="color:#eef2ff;font-weight:600;">Analytics Dashboard</span> <span style="color:#4a6280;">Monitor & export data</span>
         </div></div>''', unsafe_allow_html=True)
 
 def render_section_6_docs():
@@ -2666,14 +2931,19 @@ Compared to other platforms:
 with st.sidebar:
     # Brand header
     st.markdown("""
-<div style="padding:14px 0 6px;position:relative;">
-  <div style="font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:900;color:#eef2ff;letter-spacing:-0.04em;line-height:1;">
-    SAAP <span style="background:linear-gradient(90deg,#4f8ef7,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">v5.6</span>
+<div style="padding:16px 0 10px;position:relative;">
+  <div style="font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:900;color:#ffffff;letter-spacing:-0.05em;line-height:1;text-shadow:0 0 20px rgba(79,142,247,0.5);">
+    SAAP <span style="background:linear-gradient(90deg,#00d4ff,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">v5.6</span>
   </div>
-  <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-top:4px;font-weight:500;">Autonomous Agent Platform</div>
-  <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
-    <span style="width:6px;height:6px;background:#10e87e;border-radius:50%;box-shadow:0 0 8px #10e87e;animation:pulse 2s infinite;display:inline-block;"></span>
-    <span style="font-size:0.66rem;color:#10e87e;font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:0.08em;">LIVE · 12 AGENTS READY</span>
+  <div style="font-size:0.7rem;color:#8ba3c4;text-transform:uppercase;letter-spacing:0.15em;font-family:'JetBrains Mono',monospace;margin-top:6px;font-weight:600;">Enterprise Orchestration</div>
+  <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(16,232,126,0.12);border:1px solid rgba(16,232,126,0.25);border-radius:99px;padding:4px 12px;box-shadow:0 0 15px rgba(16,232,126,0.1);">
+        <span style="width:6px;height:6px;background:#10e87e;border-radius:50%;box-shadow:0 0 10px #10e87e;animation:pulse 2s infinite;display:inline-block;"></span>
+        <span style="font-size:0.65rem;color:#10e87e;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:0.08em;">LIVE · 12 AGENTS</span>
+    </span>
+    <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.25);border-radius:99px;padding:4px 12px;">
+        <span style="font-size:0.65rem;color:#00d4ff;font-family:'JetBrains Mono',monospace;font-weight:700;">9 SECTIONS</span>
+    </span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -3833,7 +4103,7 @@ if page == "org_mode":
 
 elif "📘" in section and page == "🏠 Dashboard":
     render_hero_dashboard()
-    st.stop() # Prevents legacy dashboard from rendering
+    # NOTE: st.stop() removed — was incorrectly hiding API key warning and agent grid
 
     if not api_key:
         st.warning("👈 **Paste your free Groq API key** in the sidebar to start running agents.\n\n"
@@ -6383,11 +6653,11 @@ if page == "live_hub":
 <div class="hub-hero">
   <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:99px;padding:5px 16px;margin-bottom:16px;">
     <span style="width:7px;height:7px;background:#10e87e;border-radius:50%;display:inline-block;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;"></span>
-    <span style="color:#86efac;font-size:0.72rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">LIVE SYSTEM ACTIVE</span>
+  <span style="color:#00d4ff;font-size:0.75rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;">SECURE ENTERPRISE CONNECTION</span>
   </div>
-  <h1 style="color:#10e87e;margin:0 0 10px;font-size:2.6rem;font-weight:800;font-family:'Outfit',sans-serif;letter-spacing:-0.03em;">⚡ Live Agent Hub</h1>
-  <p style="color:#86efac;margin:0 0 8px;font-size:1rem;font-weight:500;">Real API connections · Live data fetch · Org knowledge database · Automated workflows</p>
-  <p style="color:var(--text3);margin:0;font-size:0.87rem;">Sign in with your organisation account to access the Hub</p>
+  <h1 style="color:#ffffff;margin:0 0 12px;font-size:3.2rem;font-weight:900;font-family:'Outfit',sans-serif;letter-spacing:-0.03em;text-shadow: 0 4px 30px rgba(16,232,126,0.4);">⚡ Live Agent Hub</h1>
+  <p style="color:#86efac;margin:0 0 10px;font-size:1.1rem;font-weight:600;letter-spacing:0.02em;">Real API connections · Live data fetch · Org knowledge database · Automated workflows</p>
+  <p style="color:var(--text3);margin:0;font-size:0.9rem;font-weight:400;">Authenticate with your organisation credentials to access the secure sub-agent environment.</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -7335,22 +7605,632 @@ if page == "omega_agent":
 #  n8n REAL SIMULATION PAGE
 # ════════════════════════════════════════════════════════════════
 
+# ─── n8n DB helpers ────────────────────────────────────────────────────────────
+
+def init_n8n_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS n8n_workflows (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            trigger_type TEXT DEFAULT 'manual',
+            nodes       TEXT DEFAULT '[]',
+            active      INTEGER DEFAULT 1,
+            run_count   INTEGER DEFAULT 0,
+            last_run    TEXT DEFAULT '',
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS n8n_runs (
+            id           TEXT PRIMARY KEY,
+            workflow_id  TEXT NOT NULL,
+            workflow_name TEXT NOT NULL,
+            status       TEXT DEFAULT 'pending',
+            trigger      TEXT DEFAULT 'manual',
+            nodes_total  INTEGER DEFAULT 0,
+            nodes_done   INTEGER DEFAULT 0,
+            nodes_failed INTEGER DEFAULT 0,
+            output       TEXT DEFAULT '{}',
+            error        TEXT DEFAULT '',
+            tokens_used  INTEGER DEFAULT 0,
+            started_at   TEXT DEFAULT (datetime('now')),
+            finished_at  TEXT DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS n8n_credentials (
+            id       TEXT PRIMARY KEY,
+            name     TEXT NOT NULL,
+            type     TEXT NOT NULL,
+            data     TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_n8n_runs_wf ON n8n_runs(workflow_id);
+        CREATE INDEX IF NOT EXISTS idx_n8n_runs_status ON n8n_runs(status);
+        """)
+        # Seed example workflows
+        example_wfs = [
+            ("wf-001", "📧 Email Digest & Summariser",
+             "Fetch unread Gmail → summarise with AI → post to Slack channel",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Gmail Trigger","icon":"📧","desc":"Fetch last 10 unread emails","agent":"gmail-summary"},
+                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Summarise emails with LLM","agent":"synthesizer"},
+                 {"id":"n3","type":"Slack Post","icon":"💬","desc":"Post digest to #general","agent":"slack-agent"},
+             ])),
+            ("wf-002", "🐙 GitHub PR Review Bot",
+             "On new PR → AI code review → post review comment → create Jira ticket",
+             "webhook",
+             json.dumps([
+                 {"id":"n1","type":"GitHub Webhook","icon":"🐙","desc":"Trigger on new pull request","agent":"github-agent"},
+                 {"id":"n2","type":"AI Code Review","icon":"🤖","desc":"Analyse PR diff with AI","agent":"synthesizer"},
+                 {"id":"n3","type":"Post Comment","icon":"💬","desc":"Post review to GitHub PR","agent":"github-agent"},
+                 {"id":"n4","type":"Create Jira Ticket","icon":"🎯","desc":"Open tracking ticket in Jira","agent":"jira-agent"},
+             ])),
+            ("wf-003", "📊 Weekly KPI Report",
+             "Pull Sheets data → AI analysis → create Notion report → email to team",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Sheets Read","icon":"📊","desc":"Pull KPI data from Google Sheets","agent":"sheets-agent"},
+                 {"id":"n2","type":"AI Analyst","icon":"🤖","desc":"Analyse trends and anomalies","agent":"synthesizer"},
+                 {"id":"n3","type":"Notion Page","icon":"📝","desc":"Create weekly report page","agent":"notion-agent"},
+                 {"id":"n4","type":"Gmail Send","icon":"📧","desc":"Email report link to team","agent":"gmail-summary"},
+             ])),
+            ("wf-004", "🏢 New Lead Onboarding",
+             "HubSpot new contact → enrich with web research → create Drive folder → schedule intro call",
+             "webhook",
+             json.dumps([
+                 {"id":"n1","type":"HubSpot Trigger","icon":"🏢","desc":"New contact created in HubSpot","agent":"hubspot-agent"},
+                 {"id":"n2","type":"Web Enrichment","icon":"🌐","desc":"Research lead company & role","agent":"web-scraper"},
+                 {"id":"n3","type":"Drive Folder","icon":"📁","desc":"Create onboarding folder","agent":"drive-manager"},
+                 {"id":"n4","type":"Calendar Event","icon":"📅","desc":"Schedule intro call","agent":"calendar-manager"},
+                 {"id":"n5","type":"Update CRM","icon":"🏢","desc":"Update HubSpot with enriched data","agent":"hubspot-agent"},
+             ])),
+            ("wf-005", "🔍 Competitive Intelligence",
+             "Scrape competitor sites → AI summarise → store in Airtable → Slack alert",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Web Scraper","icon":"🌐","desc":"Scrape competitor websites","agent":"web-scraper"},
+                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Extract key insights with AI","agent":"synthesizer"},
+                 {"id":"n3","type":"Airtable Write","icon":"🗃️","desc":"Store intelligence in Airtable","agent":"airtable-agent"},
+                 {"id":"n4","type":"Slack Alert","icon":"💬","desc":"Post key findings to #strategy","agent":"slack-agent"},
+             ])),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
+            example_wfs
+        )
+
+init_n8n_db()
+
+def n8n_get_workflows():
+    with db() as c:
+        rows = c.execute("SELECT * FROM n8n_workflows ORDER BY created_at").fetchall()
+    return [dict(r) for r in rows]
+
+def n8n_get_runs(workflow_id=None, limit=50):
+    with db() as c:
+        if workflow_id:
+            rows = c.execute("SELECT * FROM n8n_runs WHERE workflow_id=? ORDER BY started_at DESC LIMIT ?", (workflow_id, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM n8n_runs ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+def n8n_save_run(run_id, workflow_id, workflow_name, status, trigger, nodes_total,
+                 nodes_done, nodes_failed, output, error, tokens):
+    finished = datetime.datetime.now().isoformat() if status in ("success","failed") else ""
+    with db() as c:
+        c.execute("""INSERT OR REPLACE INTO n8n_runs
+            (id,workflow_id,workflow_name,status,trigger,nodes_total,nodes_done,nodes_failed,output,error,tokens_used,finished_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (run_id, workflow_id, workflow_name, status, trigger, nodes_total,
+             nodes_done, nodes_failed, json.dumps(output) if isinstance(output, dict) else output,
+             error, tokens, finished))
+        c.execute("UPDATE n8n_workflows SET run_count=run_count+1, last_run=datetime('now') WHERE id=?", (workflow_id,))
+
+def n8n_run_workflow(api_key, workflow, trigger="manual"):
+    """Execute a workflow node-by-node using Groq agents."""
+    run_id = str(uuid.uuid4())
+    nodes = json.loads(workflow.get("nodes", "[]"))
+    outputs = {}
+    total_tokens = 0
+    nodes_done = 0
+    nodes_failed = 0
+    errors = []
+
+    for node in nodes:
+        agent_id = node.get("agent", "synthesizer")
+        node_desc = node.get("desc", "")
+        node_type = node.get("type", "")
+        prev_output = json.dumps(list(outputs.values())[-1]) if outputs else ""
+        payload = {**DEFAULT_PAYLOADS.get(agent_id, {"action": "run"}),
+                   "task": node_desc,
+                   "workflow_context": f"Workflow: {workflow['name']} | Node: {node_type} | Prev: {prev_output[:200]}"}
+        try:
+            if api_key:
+                result = call_groq(api_key, agent_id, payload, extra_context=f"n8n workflow node: {node_type} — {node_desc}")
+                tokens = result.get("_meta", {}).get("tokens", 0)
+                total_tokens += tokens
+            else:
+                result = {
+                    "status": "simulated",
+                    "node": node_type,
+                    "message": f"Simulated output for {node_type}: {node_desc}",
+                    "data": {"items": [f"item_{i}" for i in range(3)], "count": 3}
+                }
+            outputs[node["id"]] = result
+            nodes_done += 1
+        except Exception as e:
+            outputs[node["id"]] = {"error": str(e), "node": node_type}
+            nodes_failed += 1
+            errors.append(f"{node_type}: {str(e)}")
+
+    status = "failed" if nodes_failed == len(nodes) else ("partial" if nodes_failed > 0 else "success")
+    n8n_save_run(run_id, workflow["id"], workflow["name"], status, trigger,
+                 len(nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
+    try:
+        feed_post("section6", "n8n_workflow_run", "n8n",
+                  f"Workflow '{workflow['name']}' ran: {nodes_done}/{len(nodes)} nodes ✅",
+                  {"run_id": run_id, "status": status, "tokens": total_tokens}, icon="⚙️")
+    except Exception:
+        pass
+    return run_id, status, outputs, total_tokens
+
+def n8n_create_workflow(name, description, trigger_type, nodes_raw):
+    wf_id = "wf-" + str(uuid.uuid4())[:8]
+    with db() as c:
+        c.execute("INSERT INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
+                  (wf_id, name, description, trigger_type, json.dumps(nodes_raw)))
+    return wf_id
+
+def n8n_toggle_workflow(wf_id, active):
+    with db() as c:
+        c.execute("UPDATE n8n_workflows SET active=? WHERE id=?", (int(active), wf_id))
+
+def n8n_delete_workflow(wf_id):
+    with db() as c:
+        c.execute("DELETE FROM n8n_workflows WHERE id=?", (wf_id,))
+        c.execute("DELETE FROM n8n_runs WHERE workflow_id=?", (wf_id,))
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 if page == "n8n_simulation":
-    import streamlit.components.v1 as components
     st.markdown(
         '<div class="live-badge" style="margin-bottom:12px;">'
         '⚙️ SECTION 6 — n8n REAL SIMULATION</div>',
         unsafe_allow_html=True
     )
-    st.title("⚙️ SAAP n8n-Style Agent Hub")
-    
-    path = "n8n_platform.html"
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            n8n_html = f.read()
-        components.html(n8n_html, height=950, scrolling=True)
-    else:
-        st.error("n8n_platform.html not found.")
+    st.title("⚙️ SAAP n8n-Style Workflow Automation Hub")
+    st.caption("Build, run, and monitor multi-step agent workflows — n8n style. Each node is a real Groq-powered agent.")
+
+    # Stats row
+    _wfs = n8n_get_workflows()
+    _runs_all = n8n_get_runs(limit=200)
+    _active_wfs = sum(1 for w in _wfs if w.get("active", 1))
+    _total_runs = len(_runs_all)
+    _success_runs = sum(1 for r in _runs_all if r["status"] == "success")
+    _total_tokens_n8n = sum(r["tokens_used"] for r in _runs_all)
+    _sc1, _sc2, _sc3, _sc4, _sc5 = st.columns(5)
+    _sc1.metric("🗂 Workflows", len(_wfs))
+    _sc2.metric("✅ Active", _active_wfs)
+    _sc3.metric("▶️ Total Runs", _total_runs)
+    _sc4.metric("🎯 Successful", _success_runs)
+    _sc5.metric("🔋 Tokens Used", f"{_total_tokens_n8n:,}")
+
+    if not api_key:
+        st.warning("⚠️ No Groq API key — workflows will run in simulation mode. Add key in sidebar for live AI execution.")
+
+    # ── Tabs ────────────────────────────────────────────────────────────────────
+    n8n_tab1, n8n_tab2, n8n_tab3, n8n_tab4 = st.tabs([
+        "🗂 Workflows", "▶️ Run & Monitor", "🔨 Build Workflow", "📊 Run History"
+    ])
+
+    # ══ TAB 1: Workflow List ════════════════════════════════════════════════════
+    with n8n_tab1:
+        st.subheader("All Workflows")
+        workflows = n8n_get_workflows()
+
+        if not workflows:
+            st.info("No workflows yet. Go to the **Build Workflow** tab to create your first one.")
+        else:
+            col_hdr1, col_hdr2, col_hdr3, col_hdr4, col_hdr5 = st.columns([3,1,1,1,2])
+            col_hdr1.markdown('<span style="font-size:0.72rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;">Name / Description</span>', unsafe_allow_html=True)
+            col_hdr2.markdown('<span style="font-size:0.72rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;">Trigger</span>', unsafe_allow_html=True)
+            col_hdr3.markdown('<span style="font-size:0.72rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;">Nodes</span>', unsafe_allow_html=True)
+            col_hdr4.markdown('<span style="font-size:0.72rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;">Runs</span>', unsafe_allow_html=True)
+            col_hdr5.markdown('<span style="font-size:0.72rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:\'JetBrains Mono\',monospace;">Actions</span>', unsafe_allow_html=True)
+            st.markdown("---")
+
+            for wf in workflows:
+                nodes_list = json.loads(wf.get("nodes","[]"))
+                active = bool(wf.get("active", 1))
+                trigger_icon = {"schedule":"⏰","webhook":"🔔","manual":"▶️"}.get(wf["trigger_type"],"▶️")
+                trigger_color = {"schedule":"#a78bfa","webhook":"#00d4ff","manual":"#4f8ef7"}.get(wf["trigger_type"],"#4f8ef7")
+                status_dot = "🟢" if active else "🔴"
+                last_run_str = wf.get("last_run","")
+                last_run_display = last_run_str[:16] if last_run_str else "never"
+
+                c1, c2, c3, c4, c5 = st.columns([3,1,1,1,2])
+                c1.markdown(
+                    f"{status_dot} **{wf['name']}**  \n"
+                    f"<small style='color:#8ba3c4;'>{wf['description'][:65]}{'...' if len(wf['description']) > 65 else ''}</small>"
+                    f"<br/><small style='color:#4a6280;font-family:JetBrains Mono,monospace;font-size:0.65rem;'>last run: {last_run_display}</small>",
+                    unsafe_allow_html=True
+                )
+                c2.markdown(f'<span style="color:{trigger_color};font-size:0.82rem;">{trigger_icon} {wf["trigger_type"].title()}</span>', unsafe_allow_html=True)
+                c3.markdown(f'<span style="color:#eef2ff;font-weight:700;">🔗 {len(nodes_list)}</span>', unsafe_allow_html=True)
+                c4.markdown(f'<span style="color:#eef2ff;font-weight:700;">▶️ {wf["run_count"]}</span>', unsafe_allow_html=True)
+                with c5:
+                    btn_col1, btn_col2, btn_col3 = st.columns(3)
+                    if btn_col1.button("▶", key=f"run_{wf['id']}", help="Run now", use_container_width=True):
+                        with st.spinner(f"Running '{wf['name']}'..."):
+                            run_id, status, outputs, tokens = n8n_run_workflow(api_key, wf, "manual")
+                        if status == "success":
+                            st.success(f"✅ Done! {len(nodes_list)} nodes, {tokens} tokens")
+                        elif status == "partial":
+                            st.warning("⚠️ Partial success")
+                        else:
+                            st.error("❌ Workflow failed")
+                        st.rerun()
+                    toggle_label = "⏸" if active else "▶"
+                    if btn_col2.button(toggle_label, key=f"tog_{wf['id']}", help="Toggle active/pause", use_container_width=True):
+                        n8n_toggle_workflow(wf["id"], not active)
+                        st.rerun()
+                    if btn_col3.button("🗑", key=f"del_{wf['id']}", help="Delete workflow", use_container_width=True):
+                        n8n_delete_workflow(wf["id"])
+                        st.success(f"Deleted '{wf['name']}'")
+                        st.rerun()
+
+                # Node pipeline visualisation
+                with st.expander(f"📋 View pipeline — {wf['name']}", expanded=False):
+                    if nodes_list:
+                        node_cols = st.columns(len(nodes_list))
+                        for idx, node in enumerate(nodes_list):
+                            with node_cols[idx]:
+                                st.markdown(f"""<div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:12px 8px;text-align:center;transition:all 0.2s;">
+                                <div style="font-size:1.6rem;">{node['icon']}</div>
+                                <div style="font-size:.72rem;font-weight:700;color:#f0f4ff;margin-top:5px;line-height:1.2;">{node['type']}</div>
+                                <div style="font-size:.62rem;color:#94a8c8;margin-top:3px;">{node['desc'][:42]}</div>
+                                <div style="font-size:.58rem;color:#4f8ef7;margin-top:4px;font-family:'JetBrains Mono',monospace;">→ {node['agent']}</div>
+                                </div>""", unsafe_allow_html=True)
+                            if idx < len(nodes_list) - 1:
+                                pass  # arrows handled by layout
+                    else:
+                        st.caption("No nodes configured.")
+                st.markdown("")  # spacing
+            st.markdown("---")
+
+        # Summary metrics
+        total_runs = sum(w["run_count"] for w in workflows)
+        active_count = sum(1 for w in workflows if w.get("active",1))
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Total Workflows", len(workflows))
+        m2.metric("Active", active_count)
+        m3.metric("Total Runs", total_runs)
+        m4.metric("Trigger Types", len(set(w["trigger_type"] for w in workflows)))
+
+    # ══ TAB 2: Run & Monitor ═══════════════════════════════════════════════════
+    with n8n_tab2:
+        st.subheader("Run Workflow & Live Monitor")
+
+        workflows = n8n_get_workflows()
+        wf_names = {w["name"]: w for w in workflows}
+        sel_wf_name = st.selectbox("Select Workflow", list(wf_names.keys()))
+        sel_wf = wf_names[sel_wf_name]
+        nodes_list = json.loads(sel_wf.get("nodes","[]"))
+
+        # Show pipeline diagram
+        st.markdown("**Workflow Pipeline:**")
+        if nodes_list:
+            pipe_cols = st.columns(len(nodes_list) * 2 - 1)
+            for idx, node in enumerate(nodes_list):
+                with pipe_cols[idx * 2]:
+                    st.markdown(f"""<div style="background:linear-gradient(135deg,rgba(79,142,247,.12),rgba(0,212,255,.08));border:1px solid rgba(79,142,247,.3);border-radius:10px;padding:12px 8px;text-align:center;">
+                    <div style="font-size:1.6rem;">{node['icon']}</div>
+                    <div style="font-size:.72rem;font-weight:700;color:#f0f4ff;margin-top:6px;">{node['type']}</div>
+                    <div style="font-size:.62rem;color:#94a8c8;margin-top:2px;">{node['desc'][:35]}</div>
+                    <div style="font-size:.58rem;color:#4f8ef7;margin-top:4px;background:rgba(79,142,247,.1);border-radius:4px;padding:2px 4px;">{node['agent']}</div>
+                    </div>""", unsafe_allow_html=True)
+                if idx < len(nodes_list) - 1:
+                    with pipe_cols[idx * 2 + 1]:
+                        st.markdown('<div style="text-align:center;font-size:1.4rem;padding-top:28px;color:#4f8ef7;">→</div>', unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        trigger_mode = st.selectbox("Trigger Mode", ["manual", "simulate_webhook", "simulate_schedule"])
+        run_col1, run_col2 = st.columns([1,3])
+        run_btn = run_col1.button("▶️ Execute Workflow", type="primary", use_container_width=True)
+
+        if run_btn:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            node_statuses = {}
+
+            st.markdown("**Live Node Execution:**")
+            node_status_cols = st.columns(len(nodes_list)) if nodes_list else []
+            node_placeholders = [col.empty() for col in node_status_cols]
+
+            # Show pending state
+            for idx, node in enumerate(nodes_list):
+                node_placeholders[idx].markdown(f"""<div style="background:rgba(148,163,184,.06);border:1px solid rgba(148,163,184,.15);border-radius:8px;padding:8px;text-align:center;">
+                <div>{node['icon']}</div>
+                <div style="font-size:.65rem;color:#94a8c8;">⏳ Pending</div>
+                </div>""", unsafe_allow_html=True)
+
+            outputs = {}
+            total_tokens = 0
+            nodes_done = 0
+            nodes_failed = 0
+            errors = []
+            run_id = str(uuid.uuid4())
+
+            for idx, node in enumerate(nodes_list):
+                agent_id = node.get("agent","synthesizer")
+                node_type = node.get("type","")
+                node_desc = node.get("desc","")
+
+                # Show running
+                node_placeholders[idx].markdown(f"""<div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:8px;text-align:center;">
+                <div>{node['icon']}</div>
+                <div style="font-size:.65rem;color:#fbbf24;">⚙️ Running...</div>
+                </div>""", unsafe_allow_html=True)
+                status_text.markdown(f"**Running node {idx+1}/{len(nodes_list)}: {node_type}**")
+
+                prev_output = json.dumps(list(outputs.values())[-1])[:200] if outputs else ""
+                payload = {**DEFAULT_PAYLOADS.get(agent_id, {"action":"run"}),
+                           "task": node_desc,
+                           "workflow_context": f"Workflow: {sel_wf['name']} | Node: {node_type}"}
+
+                try:
+                    if api_key:
+                        result = call_groq(api_key, agent_id, payload,
+                                          extra_context=f"n8n node: {node_type} — {node_desc}")
+                        tokens = result.get("_meta",{}).get("tokens",0)
+                        total_tokens += tokens
+                    else:
+                        time.sleep(0.3)
+                        result = {
+                            "status": "simulated", "node": node_type,
+                            "message": f"✅ Simulated {node_type}: processed successfully",
+                            "data": {"processed": True, "items": 3}
+                        }
+                        tokens = 0
+
+                    outputs[node["id"]] = result
+                    nodes_done += 1
+                    node_placeholders[idx].markdown(f"""<div style="background:rgba(16,232,126,.08);border:1px solid rgba(16,232,126,.3);border-radius:8px;padding:8px;text-align:center;">
+                    <div>{node['icon']}</div>
+                    <div style="font-size:.65rem;color:#10e87e;">✅ Done</div>
+                    <div style="font-size:.58rem;color:#94a8c8;">{tokens} tok</div>
+                    </div>""", unsafe_allow_html=True)
+                except Exception as e:
+                    outputs[node["id"]] = {"error": str(e)}
+                    nodes_failed += 1
+                    errors.append(f"{node_type}: {str(e)}")
+                    node_placeholders[idx].markdown(f"""<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:8px;text-align:center;">
+                    <div>{node['icon']}</div>
+                    <div style="font-size:.65rem;color:#ef4444;">❌ Failed</div>
+                    </div>""", unsafe_allow_html=True)
+
+                progress_bar.progress((idx + 1) / len(nodes_list))
+
+            final_status = "failed" if nodes_failed == len(nodes_list) else ("partial" if nodes_failed > 0 else "success")
+            n8n_save_run(run_id, sel_wf["id"], sel_wf["name"], final_status, trigger_mode,
+                         len(nodes_list), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
+
+            try:
+                feed_post("section6","n8n_run","n8n",
+                          f"Workflow '{sel_wf['name']}' → {final_status} ({nodes_done}/{len(nodes_list)} nodes)",
+                          {"run_id":run_id,"tokens":total_tokens},icon="⚙️")
+            except Exception:
+                pass
+
+            progress_bar.progress(1.0)
+            if final_status == "success":
+                status_text.markdown(f"**✅ Workflow completed! {nodes_done} nodes, {total_tokens} tokens used**")
+                st.success(f"✅ '{sel_wf_name}' executed successfully — {nodes_done}/{len(nodes_list)} nodes passed")
+            elif final_status == "partial":
+                status_text.markdown(f"**⚠️ Partial success: {nodes_done} passed, {nodes_failed} failed**")
+                st.warning(f"⚠️ Partial: {nodes_done} nodes ok, {nodes_failed} failed")
+            else:
+                status_text.markdown("**❌ Workflow failed**")
+                st.error("❌ All nodes failed")
+
+            # Show outputs
+            with st.expander("📤 Node Outputs", expanded=True):
+                for node in nodes_list:
+                    nid = node["id"]
+                    out = outputs.get(nid, {})
+                    st.markdown(f"**{node['icon']} {node['type']}**")
+                    st.json(out)
+
+    # ══ TAB 3: Build Workflow ══════════════════════════════════════════════════
+    with n8n_tab3:
+        st.subheader("🔨 Build a New Workflow")
+
+        with st.form("build_workflow_form"):
+            wf_name = st.text_input("Workflow Name", placeholder="e.g. Daily Report Automation")
+            wf_desc = st.text_area("Description", placeholder="What does this workflow do?", height=80)
+            wf_trigger = st.selectbox("Trigger Type", ["manual", "schedule", "webhook"])
+
+            st.markdown("**Nodes** (add up to 6 steps)")
+            node_count = st.slider("Number of Nodes", 1, 6, 3)
+
+            AVAILABLE_NODE_TYPES = [
+                ("📧 Gmail Read", "gmail-summary", "Read/fetch emails from Gmail"),
+                ("📧 Gmail Send", "gmail-summary", "Send email via Gmail"),
+                ("📅 Calendar Check", "calendar-manager", "Check/create calendar events"),
+                ("📁 Drive Read", "drive-manager", "Read files from Google Drive"),
+                ("📁 Drive Write", "drive-manager", "Create/update Drive files"),
+                ("💬 Slack Post", "slack-agent", "Post message to Slack channel"),
+                ("🐙 GitHub Action", "github-agent", "Interact with GitHub API"),
+                ("🎯 Jira Task", "jira-agent", "Create/update Jira tickets"),
+                ("🏢 HubSpot CRM", "hubspot-agent", "Read/write HubSpot CRM data"),
+                ("📊 Sheets Data", "sheets-agent", "Read/write Google Sheets"),
+                ("📝 Notion Page", "notion-agent", "Create/update Notion pages"),
+                ("🌐 Web Scraper", "web-scraper", "Scrape and extract web data"),
+                ("🔷 Linear Issue", "linear-agent", "Manage Linear project issues"),
+                ("🗃️ Airtable DB", "airtable-agent", "Read/write Airtable database"),
+                ("🤖 AI Summariser", "synthesizer", "Summarise content with AI"),
+                ("🤖 AI Analyser", "synthesizer", "Analyse and extract insights"),
+                ("🤖 AI Writer", "synthesizer", "Generate content with AI"),
+            ]
+            node_type_labels = [f"{t[0]}" for t in AVAILABLE_NODE_TYPES]
+            node_type_map = {t[0]: t for t in AVAILABLE_NODE_TYPES}
+
+            new_nodes = []
+            for i in range(node_count):
+                st.markdown(f"**Node {i+1}**")
+                nc1, nc2 = st.columns([2,3])
+                chosen = nc1.selectbox(f"Type", node_type_labels, key=f"ntype_{i}")
+                node_info = node_type_map[chosen]
+                custom_desc = nc2.text_input(f"Description", value=node_info[2], key=f"ndesc_{i}")
+                icon = chosen.split()[0]
+                node_label = " ".join(chosen.split()[1:])
+                new_nodes.append({
+                    "id": f"n{i+1}",
+                    "type": node_label,
+                    "icon": icon,
+                    "desc": custom_desc,
+                    "agent": node_info[1]
+                })
+
+            submit_btn = st.form_submit_button("💾 Create Workflow", type="primary")
+
+        if submit_btn:
+            if wf_name.strip():
+                wf_id = n8n_create_workflow(wf_name.strip(), wf_desc.strip(), wf_trigger, new_nodes)
+                st.success(f"✅ Workflow '{wf_name}' created with {node_count} nodes!")
+                try:
+                    feed_post("section6","workflow_created","n8n",
+                              f"New workflow created: {wf_name} ({node_count} nodes)",icon="➕")
+                except Exception:
+                    pass
+                st.rerun()
+            else:
+                st.error("Please enter a workflow name")
+
+        # ── Edit existing workflow ─────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader("✏️ Edit Existing Workflow")
+        edit_workflows = n8n_get_workflows()
+        if edit_workflows:
+            edit_wf_name = st.selectbox("Select Workflow to Edit", [w["name"] for w in edit_workflows], key="edit_sel")
+            edit_wf = next(w for w in edit_workflows if w["name"] == edit_wf_name)
+            edit_nodes = json.loads(edit_wf.get("nodes","[]"))
+
+            with st.form("edit_wf_form"):
+                new_wf_name = st.text_input("Name", value=edit_wf["name"])
+                new_wf_desc = st.text_area("Description", value=edit_wf["description"], height=60)
+                new_trigger = st.selectbox("Trigger", ["manual","schedule","webhook"],
+                                           index=["manual","schedule","webhook"].index(edit_wf["trigger_type"]))
+
+                st.markdown("**Edit Nodes:**")
+                updated_nodes = []
+                for i, node in enumerate(edit_nodes):
+                    ec1, ec2 = st.columns([2,3])
+                    # Find matching type
+                    matching = [t[0] for t in AVAILABLE_NODE_TYPES if t[1] == node.get("agent","synthesizer")]
+                    default_idx = node_type_labels.index(matching[0]) if matching else 0
+                    e_type = ec1.selectbox(f"Node {i+1} Type", node_type_labels,
+                                           index=default_idx, key=f"edit_ntype_{i}")
+                    e_info = node_type_map[e_type]
+                    e_desc = ec2.text_input(f"Node {i+1} Desc", value=node.get("desc",""), key=f"edit_ndesc_{i}")
+                    e_icon = e_type.split()[0]
+                    e_label = " ".join(e_type.split()[1:])
+                    updated_nodes.append({"id":f"n{i+1}","type":e_label,"icon":e_icon,
+                                          "desc":e_desc,"agent":e_info[1]})
+
+                save_edit = st.form_submit_button("💾 Save Changes", type="primary")
+
+            if save_edit:
+                with db() as c:
+                    c.execute("UPDATE n8n_workflows SET name=?,description=?,trigger_type=?,nodes=? WHERE id=?",
+                              (new_wf_name, new_wf_desc, new_trigger, json.dumps(updated_nodes), edit_wf["id"]))
+                st.success(f"✅ Updated '{new_wf_name}'!")
+                st.rerun()
+
+    # ══ TAB 4: Run History ═════════════════════════════════════════════════════
+    with n8n_tab4:
+        st.subheader("📊 Workflow Run History")
+
+        # Overall stats
+        all_runs = n8n_get_runs(limit=200)
+        if all_runs:
+            total_r = len(all_runs)
+            success_r = sum(1 for r in all_runs if r["status"] == "success")
+            partial_r = sum(1 for r in all_runs if r["status"] == "partial")
+            failed_r = sum(1 for r in all_runs if r["status"] == "failed")
+            total_tok = sum(r["tokens_used"] for r in all_runs)
+            total_nodes = sum(r["nodes_done"] for r in all_runs)
+
+            mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+            mc1.metric("Total Runs", total_r)
+            mc2.metric("✅ Success", success_r)
+            mc3.metric("⚠️ Partial", partial_r)
+            mc4.metric("❌ Failed", failed_r)
+            mc5.metric("🔋 Tokens", f"{total_tok:,}")
+
+            st.markdown("---")
+
+            # Filter
+            filter_wf = st.selectbox("Filter by Workflow", ["All"] + list(set(r["workflow_name"] for r in all_runs)))
+            filter_status = st.selectbox("Filter by Status", ["All","success","partial","failed","pending"])
+            filtered = [r for r in all_runs
+                        if (filter_wf == "All" or r["workflow_name"] == filter_wf)
+                        and (filter_status == "All" or r["status"] == filter_status)]
+
+            # Run table
+            for run in filtered[:30]:
+                status_color = {"success":"#10e87e","partial":"#fbbf24","failed":"#ef4444","pending":"#94a8c8"}.get(run["status"],"#94a8c8")
+                status_icon = {"success":"✅","partial":"⚠️","failed":"❌","pending":"⏳"}.get(run["status"],"●")
+                trigger_icon = {"manual":"▶️","simulate_webhook":"🔔","simulate_schedule":"⏰"}.get(run["trigger"],"▶️")
+
+                with st.expander(f"{status_icon} {run['workflow_name']} — {run['started_at'][:16]} ({run['trigger']})", expanded=False):
+                    col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+                    col_r1.metric("Status", run["status"].upper())
+                    col_r2.metric("Nodes ✅", f"{run['nodes_done']}/{run['nodes_total']}")
+                    col_r3.metric("Failed", run["nodes_failed"])
+                    col_r4.metric("Tokens", run["tokens_used"])
+
+                    if run["error"]:
+                        st.error(f"Error: {run['error']}")
+
+                    # Parse and display output
+                    try:
+                        output_data = json.loads(run["output"]) if isinstance(run["output"], str) else run["output"]
+                        if output_data:
+                            st.markdown("**Node Outputs:**")
+                            st.json(output_data)
+                    except (json.JSONDecodeError, TypeError):
+                        if run["output"]:
+                            st.text(run["output"][:500])
+
+            # Export
+            st.markdown("---")
+            if st.button("📥 Export Run History as CSV"):
+                import io
+                import pandas as pd
+                df_runs = pd.DataFrame([{
+                    "Run ID": r["id"][:8],
+                    "Workflow": r["workflow_name"],
+                    "Status": r["status"],
+                    "Trigger": r["trigger"],
+                    "Nodes Total": r["nodes_total"],
+                    "Nodes Done": r["nodes_done"],
+                    "Nodes Failed": r["nodes_failed"],
+                    "Tokens": r["tokens_used"],
+                    "Started": r["started_at"],
+                    "Finished": r["finished_at"],
+                } for r in all_runs])
+                csv_buf = io.StringIO()
+                df_runs.to_csv(csv_buf, index=False)
+                st.download_button(
+                    "⬇️ Download n8n_run_history.csv",
+                    data=csv_buf.getvalue(),
+                    file_name=f"n8n_runs_{datetime.date.today()}.csv",
+                    mime="text/csv"
+                )
+        else:
+            st.info("No runs yet. Go to the 'Run & Monitor' tab to execute a workflow.")
 
 
 # ════════════════════════════════════════════════════════════════════════════════
