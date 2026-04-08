@@ -1,80 +1,92 @@
-# SAAP v4.0 — Smart Autonomous Agent Platform: Organisation Edition
+<div align="center">
+  <img src="https://img.shields.io/badge/SAAP-v5.6-00d4ff?style=for-the-badge&logo=appveyor" alt="SAAP Version">
+  <img src="https://img.shields.io/badge/Python-3.10+-3b82f6?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Streamlit-1.35+-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit">
+  <h1>⚡ Smart Autonomous Agent Platform (SAAP)</h1>
+  <p><strong>Enterprise Edition — AI Agent Orchestration & Workspace Integration</strong></p>
+</div>
 
-## What's New in v4.0 (Section 4)
+<br/>
 
-Section 4 is a **complete Real Organisation AI Agent Mode** featuring:
+## 🌟 Overview
 
-### Architecture
-- **1 Master Coordinator Agent** — decomposes org goals, assigns tasks to sub-agents
-- **12 Specialist Sub-Agents** — each with real API integration support
-- **Live Issue Detector** — detects known inter-agent problems during execution
-- **Master Synthesizer** — integrates all outputs into executive report
-- **Issue Tracker** — persistent issue log with severity, resolution workflow
-- **Multi-User Access** — team members with role-based permissions
-- **Integration Manager** — connect real APIs (Google, Slack, GitHub, etc.)
-- **Workflow History** — full audit trail of all org workflow runs
+SAAP v5.6 is a production-level, multi-agent orchestrator built on Streamlit. Overcoming the limits of traditional single-agent systems, SAAP implements a **Hierarchical Master Coordinator** pattern that dynamically manages 12 domain-specialised Sub-Agents, providing native connections to live workspace APIs (Slack, Google Workspace, GitHub, Jira). 
 
-### 12 Sub-Agents
-| Agent | Real API | Specialisation |
-|-------|----------|----------------|
-| 📧 Gmail Intelligence | Gmail API v1 | Email triage, communication analysis |
-| 📅 Time Intelligence | Calendar API v3 | Schedule optimisation, conflict detection |
-| 📁 Knowledge Store | Drive API v3 | Document management, information silos |
-| 💬 Team Pulse | Slack Web API | Team sentiment, blockers, standups |
-| 🐙 Engineering Intelligence | GitHub REST API v3 | Code velocity, PR health |
-| 📊 Data Operations | Sheets API v4 | KPI dashboards, reporting |
-| 📝 Knowledge Engine | Notion API v1 | Documentation, decision tracking |
-| 🌐 Market Intelligence | HTTP/HTTPS | Competitive intel, news monitoring |
-| 🎯 Project Tracker | Jira REST API v3 | Sprint health, velocity |
-| 🗃️ Operations Database | Airtable API | Operational data management |
-| 🔷 Product Velocity | Linear GraphQL | Product cycle health |
-| 🏢 Revenue Intelligence | HubSpot CRM v3 | Pipeline, forecasting |
+### ✨ Key Features in v5.6
+* **Fully Researched Agent Taxonomy**: Implements logic for handling inter-agent context collisions (e.g. `ERR-CTX-001`, `ERR-ID-002`).
+* **Live Enterprise Hub (`Section 5`)**: Complete JWT/Session-guarded enterprise portal.
+* **12 Specialist Sub-Agents**: Plug-and-play integrations seamlessly toggling between **Mock Stimulation** and **Real External API** usage.
+* **N8N Simulation Engine (`Section 6`)**: Simulated N8N workflow hook logic for workflow validation.
+* **Omega Agent Protocol (`Section 7`)**: High-fidelity autonomous research hub.
+* **In-Memory Cache Locking**: Integrated cross-thread SQLite routing ensuring data integrity natively on Streamlit's runtime paradigm.
 
-### Sections
-- **Section 1** — Workflow Demo (simulated single-agent runs)
-- **Section 2** — Live Research Agent (5-agent academic research system)
-- **Section 3** — Research Problems (open problems, live demonstrators)
-- **Section 4** — **Real Org Mode** (12 sub-agents, master coordinator, real APIs) 🆕
+---
 
-## Setup
+## 🏛️ Agent Architecture
 
-### 1. Get a Free Groq API Key
-1. Go to [console.groq.com](https://console.groq.com)
-2. Sign Up → API Keys → Create Key
-3. Copy the key (starts with `gsk_`)
-4. Paste in the sidebar when you open the app
+SAAP revolves around a central Coordinator delegating sub-routines:
 
-### 2. Run Locally
+| Scope | Sub-Agent Classification | Associated Live External API |
+|-------|--------------------------|------------------------------|
+| **Communications** | 📧 Gmail Intelligence | Gmail API v1 |
+| **Scheduling**     | 📅 Time Intelligence | Calendar API v3 |
+| **Files/Docs**     | 📁 Knowledge Store | Drive API v3 |
+| **Real-time Comms**| 💬 Team Pulse | Slack Web API |
+| **DevOps/VCS**     | 🐙 Engineering Intel | GitHub REST API v3 |
+| **Operations**     | 📊 Data Operations | Google Sheets API v4 |
+| **Documentation**  | 📝 Knowledge Engine | Notion API |
+| **Web Research**   | 🌐 Market Intel | HTTP/HTTPS Scrapers |
+| **Agile Sprints**  | 🎯 Project Tracker | Jira REST API v3 |
+| **Structured Data**| 🗃️ Operations Database | Airtable API |
+| **Product Tracking**| 🔷 Product Velocity | Linear GraphQL |
+| **Sales/CRM**      | 🏢 Revenue Intelligence | HubSpot CRM v3 |
+
+---
+
+## ⚙️ Installation & Usage
+
+### 1. Prerequisites
+You need Python 3.10+ installed. A free Groq API key is recommended to run local fast-LLM operations.
+* Get your API Key here: [console.groq.com](https://console.groq.com)
+
+### 2. Standard Setup
+Clone this repository and run the standard installation command:
+
 ```bash
-pip install streamlit groq requests
+# Optional but recommended: Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
+
+# Install required packages (Includes Streamlit, Pandas, APScheduler, Google Client)
+pip install -r requirements.txt
+```
+
+### 3. Launch Platform
+
+```bash
 streamlit run app.py
 ```
 
-### 3. Deploy to Streamlit Cloud
-1. Push to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Deploy from your repo
-4. Add `GROQ_API_KEY` in Secrets
+The system will build and boot a native web-server on `http://localhost:8501`. 
 
-### 4. Connect Real APIs (Optional)
-All agents work without real API keys using Groq AI simulation.
-To enable real data, add API keys in **Section 4 → Integrations** tab:
-- Google OAuth (Gmail, Calendar, Drive, Sheets)
-- Slack Bot Token
-- GitHub Personal Access Token
-- Jira API Token
-- HubSpot Private App Token
-- Notion Integration Token
-- Airtable API Key
-- Linear API Key
+### 4. Live Agent Testing (Authentication)
+* Open the UI and head to **Section 4: Integrations** to plug your actual tokens for Slack/Github/Notion.
+* Until real Integrations are linked, Agents auto-fallback to safe Mock Generative outputs.
+* **Section 5 Hub** requires internal credentials — create a demo profile in the **Section 9: Database Admin View**.
 
-## Known Inter-Agent Issues (Research)
-The system tracks 8 researched inter-agent issues:
-- ERR-CTX-001: Context Corruption (gmail→calendar)
-- ERR-SEC-003: Data Leakage Risk (gmail→slack)
-- ERR-ID-002: ID Namespace Collision (github→jira)
-- ERR-SEC-001: Prompt Injection (web-scraper→any)
-- ERR-CTX-002: Context Window Overflow (slack→notion)
-- ERR-LOCALE-001: Currency Mismatch (hubspot→sheets)
-- ERR-ENT-001: Entity Mismatch (jira→hubspot)
-- ERR-AUTH-001: OAuth Scope Gap (drive→sheets)
+---
+
+## 🔐 Environment Secrets
+If you are deploying via Docker or Streamlit Cloud, securely bind your `GROQ_API_KEY` to the runtime context:
+* **Streamlit Cloud**: Add it to repo UI -> `Settings` -> `Secrets`.
+* **Local Mode**: Create a `.streamlit/secrets.toml` file matching `secrets.toml.template`.
+
+---
+
+## 🐞 Known Inter-Agent Mitigations
+SAAP comes inherently aware of failure vectors occurring when chaining multiple LLM outputs together across various contexts. The issue-tracker automatically flags:
+* `ERR-CTX-001`: Context Corruption (e.g. Gmail payload injected into Calendar args).
+* `ERR-SEC-003`: Data Leakage (Sensitive file IDs exposed to Slack webhook).
+* `ERR-ID-002`: System ID Namespace Collisions.
+
+Monitor all live instances safely via the **Global Activity Bus** panel.

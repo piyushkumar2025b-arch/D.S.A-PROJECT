@@ -49,10 +49,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans
 .status-fail{background:rgba(239,68,68,.1);color:#f87171;}
 @keyframes pulse-text{0%,100%{opacity:1;}50%{opacity:.5;}}
 .node-body{padding:7px 10px;font-size:.72rem;color:var(--text2);}
-.node-port{position:absolute;width:12px;height:12px;background:var(--surface2);border:2px solid var(--border2);border-radius:50%;cursor:crosshair;z-index:20;transition:all .15s;}
-.node-port:hover{background:var(--blue);border-color:var(--blue);transform:scale(1.3);}
-.port-in{left:-6px;top:50%;transform:translateY(-50%);}
-.port-out{right:-6px;top:50%;transform:translateY(-50%);}
+.node-port{position:absolute;width:20px;height:20px;background:var(--surface2);border:2px solid var(--border2);border-radius:50%;cursor:crosshair;z-index:20;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.node-port::after{content:'';width:6px;height:6px;background:var(--text3);border-radius:50%;}
+.node-port:hover{background:var(--blue);border-color:var(--blue);transform:scale(1.2);}
+.node-port:hover::after{background:#fff;}
+.port-in{left:-10px;top:50%;transform:translateY(-50%);}
+.port-out{right:-10px;top:50%;transform:translateY(-50%);}
 
 /* SVG Edges */
 #edge-svg{position:absolute;inset:0;pointer-events:none;overflow:visible;}
@@ -96,7 +98,7 @@ select.btn{appearance:none;padding-right:22px;background-image:url("data:image/s
 </div>
 <div id="toolbar">
   <button class="btn primary" onclick="runWorkflow()">▶ Run Workflow</button>
-  <button class="btn success" onclick="saveWorkflow()">💾 Save</button>
+  <button class="btn success" onclick="saveWorkflow()">💾 Save & Sync</button>
   <div class="sep"></div>
   <button class="btn" onclick="clearCanvas()">🗑 Clear</button>
   <button class="btn" onclick="toggleLog()">📋 Log</button>
@@ -193,21 +195,21 @@ select.btn{appearance:none;padding-right:22px;background-image:url("data:image/s
 const GROQ_KEY = window.INJECTED_GROQ_KEY || window.parent?.GROQ_KEY || '';
 
 const AGENT_DESCRIPTIONS = {
-  'trigger': 'Starts the workflow execution',
-  'gmail-summary': 'Fetch & summarise Gmail inbox',
-  'calendar-manager': 'Manage Google Calendar events',
-  'drive-manager': 'Organise Google Drive files',
-  'slack-agent': 'Slack channel operations',
-  'github-agent': 'GitHub PR & issue digest',
-  'sheets-agent': 'Google Sheets reporting',
-  'notion-agent': 'Notion page management',
-  'web-scraper': 'Web data extraction',
-  'jira-agent': 'Jira project tracking',
-  'hubspot-agent': 'HubSpot CRM operations',
-  'linear-agent': 'Linear issue tracking',
-  'airtable-agent': 'Airtable database ops',
-  'synthesizer': 'Synthesize all agent outputs',
-  'output': 'Display final results',
+  'trigger': 'Starts the workflow execution trigger',
+  'gmail-summary': '📧 Gmail Specialist: Priority scoring & digest extraction',
+  'calendar-manager': '📅 Calendar Lead: Schedule optimization & conflict detection',
+  'drive-manager': '📁 Drive Analyst: File organization & document summarization',
+  'slack-agent': '💬 Slack Liaison: Channel summaries & sentiment analysis',
+  'github-agent': '🐙 GitHub Engineer: PR reviews & repository health analytics',
+  'sheets-agent': '📊 Sheets Reporter: Data synchronization & report generation',
+  'notion-agent': '📝 Notion Architect: Page architecture & knowledge sync',
+  'web-scraper': '🌐 Intelligence Scraper: Live web extraction & data capture',
+  'jira-agent': '🎯 Jira Strategist: Sprint tracking & ticket management',
+  'hubspot-agent': '🏢 HubSpot CRM: Pipeline forecasting & lead scoring',
+  'linear-agent': '🔷 Linear Ops: Project health metrics & issue tracking',
+  'airtable-agent': '🗃️ Airtable Specialist: Relational data & AI summaries',
+  'synthesizer': '🧠 Master Synthesizer: Merges multi-agent outputs',
+  'output': '📤 Results Hub: Final distribution of workflow data',
 };
 
 let nodes = [], edges = [], selectedNode = null;
@@ -290,7 +292,7 @@ function renderNode(node){
       <span class="status status-idle" id="status-${node.id}">idle</span>
     </div>
     <div class="node-body" id="body-${node.id}">${AGENT_DESCRIPTIONS[node.type]||'Agent node'}</div>
-    <div class="node-port port-in" id="port-in-${node.id}" onmousedown="portDown(event,'${node.id}','in')"></div>
+    <div class="node-port port-in" id="port-in-${node.id}" onmousedown="portDown(event,'${node.id}','in')" onmouseup="portUp(event,'${node.id}','in')"></div>
     <div class="node-port port-out" id="port-out-${node.id}" onmousedown="portDown(event,'${node.id}','out')"></div>
   `;
   div.addEventListener('mousedown', e=>{ if(!e.target.classList.contains('node-port')){ startNodeDrag(e, node.id); }});
@@ -352,14 +354,26 @@ function portDown(e, nodeId, side){
     const line = document.createElementNS('http://www.w3.org/2000/svg','path');
     line.setAttribute('class','edge-path'); line.id = 'temp-edge';
     svg.appendChild(line); tempEdgeLine = line;
-  } else {
-    if(draggingEdge && dragFromPort && dragFromPort !== nodeId){
-      edges.push({ id:'e'+(edges.length+1), from: dragFromPort, to: nodeId });
-      draggingEdge = null; dragFromPort = null;
-      if(tempEdgeLine){ tempEdgeLine.remove(); tempEdgeLine = null; }
-      renderEdges(); updateStats();
-    }
+    window.addEventListener('mouseup', portUpGlobal);
   }
+}
+function portUp(e, nodeId, side){
+  if(side === 'in' && draggingEdge && dragFromPort && dragFromPort !== nodeId){
+    e.stopPropagation();
+    // Check if already connected
+    if(!edges.find(ed=>ed.from===dragFromPort && ed.to===nodeId)){
+      edges.push({ id:'e'+(edges.length+1), from: dragFromPort, to: nodeId });
+      addLog('Nodes connected: '+dragFromPort+' → '+nodeId, 'ok');
+    }
+    cancelTempEdge();
+    renderEdges(); updateStats();
+  }
+}
+function portUpGlobal(e){
+  if(!e.target.classList.contains('node-port')){
+     cancelTempEdge();
+  }
+  window.removeEventListener('mouseup', portUpGlobal);
 }
 function updateTempEdge(e){
   if(!tempEdgeLine || !dragFromPort) return;
@@ -376,6 +390,7 @@ function cancelTempEdge(){
   if(tempEdgeLine){ tempEdgeLine.remove(); tempEdgeLine = null; }
   draggingEdge = null; dragFromPort = null;
 }
+
 function bezierPath(x1,y1,x2,y2){
   const cp = Math.abs(x2-x1)*0.5;
   return `M${x1},${y1} C${x1+cp},${y1} ${x2-cp},${y2} ${x2},${y2}`;
@@ -478,24 +493,27 @@ async function callGroqAgent(apiKey, agentType, prevResult){
     'drive-manager': {action:'organize_root', dry_run:true},
     'slack-agent': {action:'summarize_channel', channel:'#general', hours:24},
     'github-agent': {action:'pr_digest', repo:'org/main', days:7},
-    'sheets-agent': {action:'create_report', title:'Workflow Report'},
-    'notion-agent': {action:'create_page', title:'Workflow Output'},
+    'sheets-agent': {action:'create_report', title:'Workflow Analytics Report'},
+    'notion-agent': {action:'create_page', title:'Workflow Automation Output'},
     'web-scraper': {action:'scrape_url', url:'https://news.ycombinator.com'},
     'jira-agent': {action:'list_issues', project:'ENG'},
     'hubspot-agent': {action:'crm_report', days:30},
     'linear-agent': {action:'weekly_report', team:'Engineering'},
-    'airtable-agent': {action:'ai_summary', base:'Tasks'},
-    'synthesizer': {action:'synthesize', context: prevResult ? JSON.stringify(prevResult).slice(0,400) : 'all previous results'},
+    'airtable-agent': {action:'ai_summary', base:'Production Tasks'},
+    'synthesizer': {action:'synthesize', context: prevResult ? JSON.stringify(prevResult).slice(0,500) : 'all previous results'},
   };
   const payload = payloads[agentType] || {action:'run'};
   const model = document.getElementById('model-select').value;
+  
+  const systemPrompt = `You are the OMEGA-SAAP ${agentType.toUpperCase()} Specialist. Return ONLY a valid JSON object representing a REALISTIC enterprise output for ${payload.action}. Include "_tokens_used" field.`;
+
   const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
     body: JSON.stringify({
-      model, max_tokens: 600, temperature: 0.4,
+      model, max_tokens: 800, temperature: 0.5,
       messages:[
-        {role:'system', content:'You are a '+agentType+' AI agent. Return ONLY compact valid JSON with realistic enterprise data for the action. Include _tokens field = approximate 200.'},
-        {role:'user', content:'Execute: '+JSON.stringify(payload)+(prevResult?' Context: '+JSON.stringify(prevResult).slice(0,200):'')},
+        {role:'system', content: systemPrompt},
+        {role:'user', content: `Execute Payload: ${JSON.stringify(payload)}. ${prevResult ? 'Input: ' + JSON.stringify(prevResult).slice(0,400) : ''}`},
       ]
     })
   });
@@ -503,7 +521,7 @@ async function callGroqAgent(apiKey, agentType, prevResult){
   if(data.error) throw new Error(data.error.message);
   let raw = data.choices[0].message.content.trim();
   if(raw.startsWith('```')){raw=raw.split('\n').slice(1).join('\n');} if(raw.endsWith('```')){raw=raw.slice(0,-3).trim();}
-  try{ return JSON.parse(raw); } catch{ return {output:raw, agent:agentType, _tokens:200}; }
+  try{ return JSON.parse(raw); } catch{ return {output:raw, agent:agentType, _tokens_used:350}; }
 }
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
@@ -513,6 +531,37 @@ function saveWorkflow(){
   const data = { nodes: nodes.map(({id,type,icon,label,x,y})=>({id,type,icon,label,x,y})), edges };
   localStorage.setItem('saap_workflow', JSON.stringify(data));
   addLog('Workflow saved to browser storage', 'ok');
+  
+  // SYNC TO STREAMLIT ENGINE
+  try {
+    const syncData = { action: 'save_wf', nodes: data.nodes, edges: data.edges };
+    const syncStr = JSON.stringify(syncData);
+    
+    // Try to find the Streamlit text area in the parent document
+    // Streamlit assigns an aria-label or we can look for the key
+    const parentDoc = window.parent.document;
+    const textAreas = parentDoc.querySelectorAll('textarea');
+    let found = false;
+    for (let ta of textAreas) {
+        // Streamlit often puts the key in data-testid or similar
+        if (ta.closest('[data-testid="stTextArea"]')) {
+            ta.value = syncStr;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.dispatchEvent(new Event('change', { bubbles: true }));
+            ta.dispatchEvent(new Event('blur', { bubbles: true }));
+            found = true;
+            break;
+        }
+    }
+    if (found) {
+        addLog('✅ Synced with SAAP Engine Database', 'ok');
+    } else {
+        addLog('ℹ️ Saved locally (Engine sync requires manual copy or active session)', 'info');
+    }
+  } catch(e) {
+    console.warn("Sync failed (likely cross-origin):", e);
+    addLog('ℹ️ Saved locally (Local session only)', 'info');
+  }
 }
 
 // ─── Templates ───
@@ -585,7 +634,32 @@ function loadTemplate(name){
 
 // Load saved workflow or default template
 window.addEventListener('load',()=>{
-  try{ const saved = localStorage.getItem('saap_workflow'); if(saved){ const d=JSON.parse(saved); /* restore */ } }catch{}
+  // Priority 1: Data injected from SAAP Database (Synced)
+  if(window.SYNCED_WORKFLOW_DATA && Array.isArray(window.SYNCED_WORKFLOW_DATA) && window.SYNCED_WORKFLOW_DATA.length > 0){
+    clearCanvas();
+    window.SYNCED_WORKFLOW_DATA.forEach(n => addNode(n.type, n.icon, n.label, n.x, n.y, {id: n.id}));
+    addLog('Restored design from SAAP Engine Database', 'ok');
+    return;
+  }
+  
+  // Priority 2: Local browser storage
+  try{ 
+    const saved = localStorage.getItem('saap_workflow'); 
+    if(saved){ 
+      const d = JSON.parse(saved); 
+      if(d.nodes && d.nodes.length > 0){
+        clearCanvas();
+        d.nodes.forEach(n => addNode(n.type, n.icon, n.label, n.x, n.y, {id: n.id}));
+        // edges needs id mapping or fixed IDs
+        d.edges.forEach(e => edges.push(e));
+        renderEdges(); updateStats();
+        addLog('Restored design from Local Browser Storage', 'info');
+        return;
+      }
+    } 
+  }catch(e){ console.warn("Load failed:", e); }
+
+  // Default
   loadTemplate('daily');
 });
 </script>

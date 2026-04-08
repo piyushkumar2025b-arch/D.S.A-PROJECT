@@ -115,24 +115,41 @@ st.markdown("""
         --radius-2xl: 36px;
     }
 
-    /* ── GLOBAL BASE ────────────────────────────────────────────── */
+    /* ── GLOBAL BASE & SCROLLBAR ────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--blue-dim); }
+
     .stApp {
         background-color: var(--bg);
         font-family: 'Outfit', sans-serif;
         background-image:
-            radial-gradient(ellipse 80% 60% at 50% -20%, rgba(79,142,247,0.08) 0%, transparent 70%),
-            radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0,212,255,0.04) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 30% at 10% 90%, rgba(167,139,250,0.04) 0%, transparent 60%);
+            radial-gradient(ellipse 80% 60% at 50% -20%, rgba(79,142,247,0.12) 0%, transparent 70%),
+            radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0,212,255,0.06) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 30% at 10% 90%, rgba(167,139,250,0.06) 0%, transparent 60%);
         background-attachment: fixed;
+        animation: bg-shift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bg-shift {
+        0% { background-position: 0% 0%; }
+        100% { background-position: 100% 100%; }
     }
 
     /* Dot-grid texture overlay */
     .stApp::before {
         content: "";
         position: fixed; inset: 0; pointer-events: none; z-index: 0;
-        background-image: radial-gradient(rgba(79,142,247,0.08) 1px, transparent 1px);
-        background-size: 32px 32px;
-        mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+        background-image: radial-gradient(rgba(79,142,247,0.1) 1px, transparent 1px);
+        background-size: 30px 30px;
+        mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    .stApp::after {
+        content: "";
+        position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+        box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
     }
 
     .stSidebar {
@@ -169,15 +186,24 @@ st.markdown("""
         border-radius: var(--radius-lg);
         padding: 18px 22px;
         position: relative; overflow: hidden;
-        transition: all 0.25s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     .stMetric::before {
         content: "";
-        position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        position: absolute; top: 0; left: 0; right: 0; height: 3px;
         background: linear-gradient(90deg, transparent, var(--blue), var(--cyan), transparent);
-        opacity: 0.6;
+        opacity: 0.8;
+        transform: scaleX(0);
+        transform-origin: center;
+        transition: transform 0.4s ease;
     }
-    .stMetric:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: var(--glow-blue); }
+    .stMetric:hover { 
+        border-color: var(--blue-dim); 
+        transform: translateY(-4px) scale(1.02); 
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), var(--glow-blue); 
+    }
+    .stMetric:hover::before { transform: scaleX(1); }
     .stMetric label {
         color: var(--text3) !important;
         font-size: 0.72rem;
@@ -2284,6 +2310,21 @@ Write the final comprehensive research report based on ALL of the above."""
 #   SECTION 4 — REAL ORGANISATION MODE (THE BIG NEW FEATURE)
 # ════════════════════════════════════════════════════════════════════════════════
 
+AGENT_TO_SERVICE = {
+    "gmail-summary":       "google_workspace_sa",
+    "github-agent":        "github",
+    "slack-agent":         "slack",
+    "notion-agent":        "notion",
+    "hubspot-agent":       "hubspot",
+    "jira-agent":          "jira",
+    "linear-agent":        "linear",
+    "airtable-agent":      "airtable",
+    "calendar-manager":    "google_workspace_sa",
+    "drive-manager":       "google_workspace_sa",
+    "sheets-agent":        "google_workspace_sa",
+    "web-scraper":         "google_search",
+}
+
 # 12 Sub-Agent definitions with real API capabilities
 SUB_AGENTS = {
     "gmail-summary": {
@@ -3071,6 +3112,35 @@ with st.sidebar:
     if page == "live_hub":
         st.divider()
         st.markdown('<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:8px 10px;font-size:0.78rem;color:#86efac;text-align:center;">⚡ Live Hub Active<br><span style="color:var(--text3);font-size:0.72rem;">Real APIs · Live DB · Automations</span></div>', unsafe_allow_html=True)
+
+    # ── SYSTEM DIAGNOSTICS (Real-time connection status) ──
+    st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.12em;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px;border-top:1px solid var(--border);padding-top:15px;">📊 AGENT STATUS (LIVE HUB)</div>', unsafe_allow_html=True)
+    
+    diag_member = st.session_state.get("hub_member")
+    if diag_member:
+        # Check connected services for current hub user
+        with db() as _c:
+            conns = [dict(r) for r in _c.execute("SELECT service FROM hub_api_connections WHERE member_id=?", (diag_member["id"],)).fetchall()]
+        conn_svcs = {c["service"] for c in conns}
+        
+        diag_cols = st.columns(2)
+        idx = 0
+        display_agents = ["gmail-summary", "slack-agent", "github-agent", "notion-agent", "hubspot-agent", "web-scraper"]
+        for agent_id in display_agents:
+            col = diag_cols[idx % 2]
+            icon = SUB_AGENTS.get(agent_id, {}).get("icon", "🤖")
+            svc_id = AGENT_TO_SERVICE.get(agent_id)
+            is_live = svc_id in conn_svcs
+            h_status_color = "#10e87e" if is_live else "#4a6280"
+            h_status_label = "LIVE" if is_live else "SIM"
+            col.markdown(f"""<div style="font-size:0.65rem;color:#94a3b8;display:flex;align-items:center;margin-bottom:4px;">
+                <span style="color:{h_status_color};margin-right:4px;">●</span> {icon} {agent_id.split('-')[0].upper()} <span style="margin-left:auto;color:{h_status_color};font-weight:bold;font-size:0.6rem;">{h_status_label}</span>
+            </div>""", unsafe_allow_html=True)
+            idx += 1
+        st.markdown('<div style="font-size:0.65rem;color:var(--text4);margin-top:8px;">💡 Connect APIs in Section 5 to activate LIVE status.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="font-size:0.7rem;color:var(--text4);text-align:center;padding:10px;border:1px dashed var(--border);border-radius:8px;">Log in to Live Hub for status</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -5941,6 +6011,115 @@ def real_test_vertex_ai(token, extra):
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
 
+def fetch_gmail_live(token, extra):
+    """Fetch recent unread emails and summary stats from Gmail API"""
+    import requests
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    out = {}
+    try:
+        # 1. Get profile
+        prof_r = requests.get("https://gmail.googleapis.com/gmail/v1/users/me/profile", headers=h, timeout=10)
+        if prof_r.ok:
+            p = prof_r.json()
+            out["email_address"] = p.get("emailAddress", "")
+            out["total_messages"] = p.get("messagesTotal", 0)
+        # 2. Get unread count
+        list_r = requests.get("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=is:unread", headers=h, timeout=10)
+        if list_r.ok:
+            msgs = list_r.json().get("messages", [])
+            out["unread_sample_count"] = len(msgs)
+            out["recent_unread"] = []
+            for m in msgs[:5]:
+                det_r = requests.get(f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{m['id']}", headers=h, timeout=10)
+                if det_r.ok:
+                    d = det_r.json()
+                    hdrs = d.get("payload",{}).get("headers",[])
+                    subj = next((h["value"] for h in hdrs if h["name"] == "Subject"), "No Subject")
+                    f_from = next((h["value"] for h in hdrs if h["name"] == "From"), "Unknown")
+                    out["recent_unread"].append({"id": m["id"], "subject": subj[:80], "from": f_from})
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_calendar_live(token, extra):
+    """Fetch today's events from Google Calendar API"""
+    import requests, datetime
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    out = {}
+    try:
+        now = datetime.datetime.utcnow().isoformat() + 'Z'
+        url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin={now}&maxResults=10&singleEvents=true&orderBy=startTime"
+        r = requests.get(url, headers=h, timeout=10)
+        if r.ok:
+            events = r.json().get("items", [])
+            out["events"] = []
+            for e in events:
+                out["events"].append({
+                    "summary": e.get("summary", "No Title"),
+                    "start": e.get("start", {}).get("dateTime", e.get("start", {}).get("date", "")),
+                    "link": e.get("htmlLink", "")
+                })
+            out["total_upcoming"] = len(events)
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_drive_live(token, extra):
+    """Fetch recent files from Google Drive API"""
+    import requests
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    out = {}
+    try:
+        r = requests.get("https://www.googleapis.com/drive/v3/files?pageSize=10&fields=files(id,name,mimeType,modifiedTime,size)", headers=h, timeout=10)
+        if r.ok:
+            files = r.json().get("files", [])
+            out["files"] = [{"name": f["name"], "type": f["mimeType"], "modified": f["modifiedTime"][:10]} for f in files]
+            out["count"] = len(files)
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_web_scraper_live(token, extra, payload=None):
+    """Actually scrape a website using requests and BeautifulSoup"""
+    import requests
+    from bs4 import BeautifulSoup
+    # Try to get URL from payload first (dynamic), then extra (config), then default
+    url = (payload or {}).get("url") or extra.get("url") or "https://news.ycombinator.com"
+    out = {"target_url": url}
+    try:
+        r = requests.get(url, headers={"User-Agent":"SAAP-Agent/5.0"}, timeout=15)
+        if r.ok:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            for s in soup(["script", "style"]): s.decompose() 
+            text = soup.get_text(separator=' ', strip=True)
+            out["title"] = soup.title.string if soup.title else "No Title"
+            out["text_sample"] = text[:4000] # Increased for better LLM context
+            out["links_count"] = len(soup.find_all('a'))
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
+def fetch_sheets_live(token, extra, payload=None):
+    """Fetch structured data from a Google Sheet tab"""
+    import requests
+    h = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    sheet_id = extra.get("sheet_id", "")
+    tab_name = (payload or {}).get("sheet_tab") or "Sheet1"
+    out = {"sheet_id": sheet_id, "tab": tab_name}
+    if not sheet_id:
+        return {"error": "No Sheet ID configured"}
+    try:
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{tab_name}!A1:Z50"
+        r = requests.get(url, headers=h, timeout=10)
+        if r.ok:
+            out["values"] = r.json().get("values", [])
+            out["rows_count"] = len(out["values"])
+        else:
+            out["error"] = f"Sheets API error: {r.status_code}"
+    except Exception as e:
+        out["fetch_error"] = str(e)
+    return out
+
 # ─── Google Live Fetchers ────────────────────────────────────────────────────
 
 def fetch_gemini_live(token, extra):
@@ -6346,26 +6525,44 @@ LIVE_FETCHERS = {
     "google-search-agent": fetch_google_search_live,
     "vertex-ai-agent":     fetch_vertex_ai_live,
     "google-sheets-agent": fetch_google_sheets_live,
+    "gmail-summary":       fetch_gmail_live,
+    "calendar-manager":    fetch_calendar_live,
+    "drive-manager":       fetch_drive_live,
+    "web-scraper":         fetch_web_scraper_live,
+    "sheets-agent":        fetch_sheets_live,
 }
 
-AGENT_TO_SERVICE = {
-    "github-agent":        "github",
-    "slack-agent":         "slack",
-    "notion-agent":        "notion",
-    "hubspot-agent":       "hubspot",
-    "jira-agent":          "jira",
-    "linear-agent":        "linear",
-    "airtable-agent":      "airtable",
-    # Google AI Agents
-    "gemini-ai-agent":     "google_gemini",
-    "google-search-agent": "google_search",
-    "vertex-ai-agent":     "vertex_ai",
-    "google-sheets-agent": "google_sheets",
-    "gmail-summary":       "google_workspace_sa",
-    "calendar-manager":    "google_workspace_sa",
-    "drive-manager":       "google_workspace_sa",
-    "sheets-agent":        "google_workspace_sa",
-}
+
+def hub_resolve_live_data(agent_name, member_id, payload=None):
+    """Universal dispatcher to fetch real data for any agent if credentials exist."""
+    service_id = AGENT_TO_SERVICE.get(agent_name)
+    if not service_id or not member_id:
+        return None, None
+    
+    connections = hub_get_api_connections(member_id)
+    conn = next((c for c in connections if c["service"] == service_id), None)
+    if not conn:
+        return None, None
+        
+    api_key_val = conn.get("api_key", "")
+    extra_cfg = json.loads(conn.get("extra_config", "{}"))
+    fetcher = LIVE_FETCHERS.get(agent_name)
+    
+    if fetcher and api_key_val:
+        try:
+            # Check if fetcher accepts payload
+            import inspect
+            sig = inspect.signature(fetcher)
+            if 'payload' in sig.parameters:
+                live_data = fetcher(api_key_val, extra_cfg, payload=payload)
+            else:
+                live_data = fetcher(api_key_val, extra_cfg)
+                
+            if live_data and not live_data.get("fetch_error"):
+                return live_data, service_id
+        except Exception:
+            pass
+    return None, service_id
 
 # ─── Core Automation Runner ───────────────────────────────────────────────────
 
@@ -6449,30 +6646,19 @@ Analyse the goal and create a specific task for EACH agent. Return ONLY valid JS
 
         log(f"{ainfo.get('icon','🤖')} {ainfo.get('name', agent_name)} — Starting task...")
 
-        # Fetch REAL live data if connected
+        # Fetch REAL live data if connected using universal resolver
+        lp = {"goal": goal, "task": task_desc, "data": task_info.get('data_to_extract', [])}
+        live_data, service_id = hub_resolve_live_data(agent_name, member["id"], payload=lp)
         real_data_block = ""
         is_real = False
-        if service_id and service_id in conn_by_service:
-            conn = conn_by_service[service_id]
-            api_key_val = conn.get("api_key", "")
-            extra_cfg = json.loads(conn.get("extra_config", "{}"))
-            fetcher = LIVE_FETCHERS.get(agent_name)
-            if fetcher and api_key_val:
-                log(f"  🔌 Fetching LIVE data from {SERVICES_CONFIG.get(service_id,{}).get('name', service_id)} API...")
-                try:
-                    live_data = fetcher(api_key_val, extra_cfg)
-                    if live_data and not live_data.get("fetch_error"):
-                        real_data_block = f"\n\n╔══ REAL LIVE DATA from {service_id.upper()} API ══╗\n{json.dumps(live_data, indent=2)[:1200]}\n╚══════════════════════════════════════════╝"
-                        is_real = True
-                        real_api_calls_count += 1
-                        log(f"  ✅ LIVE {service_id.upper()} data fetched — {len(json.dumps(live_data))} bytes of real data")
-                    else:
-                        log(f"  ⚠️ {service_id} returned error: {live_data.get('fetch_error','unknown')}", "warn")
-                except Exception as e:
-                    log(f"  ⚠️ {service_id} fetch error: {str(e)[:80]}", "warn")
-        else:
-            if service_id:
-                log(f"  🤖 {service_id.upper()} not connected — AI will generate contextual analysis")
+        if live_data:
+            log(f"  🔌 Fetching LIVE data from {service_id.upper()} API...")
+            real_data_block = f"\n\n╔══ REAL LIVE DATA from {service_id.upper()} API ══╗\n{json.dumps(live_data, indent=2)[:1200]}\n╚══════════════════════════════════════════╝"
+            is_real = True
+            real_api_calls_count += 1
+            log(f"  ✅ LIVE data fetched successfully")
+        elif service_id:
+            log(f"  🤖 {service_id.upper()} not connected — AI will generate contextual analysis")
 
         # Build agent prompt
         base_prompt = AGENT_PROMPTS.get(agent_name, "You are a helpful AI agent. Return only valid JSON.")
@@ -7584,6 +7770,33 @@ def build_omega_html(groq_key: str) -> str:
     return "<h3>omega_agent.html not found — place it in the same folder as app.py</h3>"
 
 
+def build_n8n_html(groq_key: str) -> str:
+    """Load n8n_platform.html and inject the Groq API key at runtime."""
+    path = "n8n_platform.html"
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                html = f.read()
+            safe_key = groq_key.replace('"', '').replace("'", "").replace(";", "") if groq_key else ""
+            
+            # Fetch synced design from DB to inject
+            synced_json = "null"
+            try:
+                with db() as c:
+                    row = c.execute("SELECT nodes FROM n8n_workflows WHERE id='wf-design-canvas'").fetchone()
+                    if row: synced_json = row[0]
+            except Exception: pass
+
+            inject_block = f'<script>\nwindow.INJECTED_GROQ_KEY = "{safe_key}";\nwindow.SYNCED_WORKFLOW_DATA = {synced_json};\n'
+            import re as _re
+            html = _re.sub(r'<script>', inject_block, html, count=1)
+            return html
+        except Exception as e:
+            return f"<h3>Error loading n8n_platform.html: {str(e)}</h3>"
+    return "<h3>n8n_platform.html not found — place it in the same folder as app.py</h3>"
+
+
+
 # ════════════════════════════════════════════════════════════════
 #  SECTION 7 — OMEGA AGENT PAGE
 # ════════════════════════════════════════════════════════════════
@@ -7616,6 +7829,7 @@ def init_n8n_db():
             description TEXT DEFAULT '',
             trigger_type TEXT DEFAULT 'manual',
             nodes       TEXT DEFAULT '[]',
+            edges       TEXT DEFAULT '[]',
             active      INTEGER DEFAULT 1,
             run_count   INTEGER DEFAULT 0,
             last_run    TEXT DEFAULT '',
@@ -7726,52 +7940,95 @@ def n8n_save_run(run_id, workflow_id, workflow_name, status, trigger, nodes_tota
              error, tokens, finished))
         c.execute("UPDATE n8n_workflows SET run_count=run_count+1, last_run=datetime('now') WHERE id=?", (workflow_id,))
 
-def n8n_run_workflow(api_key, workflow, trigger="manual"):
-    """Execute a workflow node-by-node using Groq agents."""
+def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
+    """Execute a workflow node-by-node using Groq agents with real-time logging."""
     run_id = str(uuid.uuid4())
-    nodes = json.loads(workflow.get("nodes", "[]"))
+    nodes_list = json.loads(workflow.get("nodes", "[]"))
+    edges_list = json.loads(workflow.get("edges", "[]"))
     outputs = {}
     total_tokens = 0
     nodes_done = 0
     nodes_failed = 0
     errors = []
 
-    for node in nodes:
-        agent_id = node.get("agent", "synthesizer")
-        node_desc = node.get("desc", "")
-        node_type = node.get("type", "")
-        prev_output = json.dumps(list(outputs.values())[-1]) if outputs else ""
+    # Simple topological sort for Python
+    def get_execution_order(nodes, edges):
+        visited = set()
+        order = []
+        node_map = {n["id"]: n for n in nodes if "id" in n}
+        def visit(nid):
+            if nid in visited: return
+            visited.add(nid)
+            # Find nodes that depend on this one
+            for edge in edges:
+                if edge["from"] == nid:
+                    visit(edge["to"])
+            order.insert(0, node_map[nid])
+        
+        # Start from trigger or orphan nodes
+        starts = [n["id"] for n in nodes if not any(e["to"] == n["id"] for e in edges)]
+        if not starts: starts = [n["id"] for n in nodes]
+        for nid in starts: visit(nid)
+        return order[::-1] # Reverse to get correct forward order
+
+    ordered_nodes = get_execution_order(nodes_list, edges_list)
+
+    for node in ordered_nodes:
+        # Map agent ID to key if it's the node type (e.g. Gmail Agent -> gmail-summary)
+        agent_id = node.get("agent") or node.get("type", "").lower().replace(" agent","").replace(" ","-")
+        if agent_id == "trigger": continue
+        
+        node_desc = node.get("desc", node.get("label", ""))
+        node_type = node.get("type", "Agent")
+        
+        if progress_cb: progress_cb(f"🚀 Initialising node: {node_type}...")
+        
+        # Check for real live data
+        member_id = st.session_state.get("hub_member", {}).get("id", "hub-admin-1")
+        
+        # Build context from previous outputs
+        ctx_parts = []
+        for pid, pval in outputs.items():
+            ctx_parts.append(f"Node {pid} Output: {json.dumps(pval)[:200]}...")
+        workflow_ctx = f"WF: {workflow['name']} | Node: {node_type}\n" + "\n".join(ctx_parts)
+
         payload = {**DEFAULT_PAYLOADS.get(agent_id, {"action": "run"}),
                    "task": node_desc,
-                   "workflow_context": f"Workflow: {workflow['name']} | Node: {node_type} | Prev: {prev_output[:200]}"}
+                   "workflow_context": workflow_ctx[:1000]}
+
+        live_data, svc_id = hub_resolve_live_data(agent_id, member_id, payload=payload)
+        
+        real_ctx = ""
+        if live_data:
+            if progress_cb: progress_cb(f"🔌 Connected to {svc_id.upper()} (LIVE)")
+            real_ctx = f"\n\n[REAL LIVE DATA FROM {svc_id.upper()}]\n{json.dumps(live_data, indent=2)[:800]}"
+        else:
+            if progress_cb: progress_cb(f"🤖 {agent_id.upper()} (SIM)")
+            
         try:
             if api_key:
-                result = call_groq(api_key, agent_id, payload, extra_context=f"n8n workflow node: {node_type} — {node_desc}")
+                if progress_cb: progress_cb(f"🧠 {agent_id.upper()} is thinking...")
+                result = call_groq(api_key, agent_id, payload, 
+                                 extra_context=f"Context:\n{workflow_ctx}{real_ctx}")
+                if live_data: result["_meta_live"] = True
                 tokens = result.get("_meta", {}).get("tokens", 0)
                 total_tokens += tokens
+                if progress_cb: progress_cb(f"✅ {node_type} complete")
             else:
-                result = {
-                    "status": "simulated",
-                    "node": node_type,
-                    "message": f"Simulated output for {node_type}: {node_desc}",
-                    "data": {"items": [f"item_{i}" for i in range(3)], "count": 3}
-                }
+                result = {"status": "simulated", "node": node_type, "data": {"items": [1,2,3]}}
+                if progress_cb: progress_cb(f"📦 {node_type} (Simulation) complete")
+            
             outputs[node["id"]] = result
             nodes_done += 1
         except Exception as e:
-            outputs[node["id"]] = {"error": str(e), "node": node_type}
+            if progress_cb: progress_cb(f"❌ Failed: {str(e)[:40]}")
+            outputs[node.get("id","err")] = {"error": str(e)}
             nodes_failed += 1
             errors.append(f"{node_type}: {str(e)}")
 
-    status = "failed" if nodes_failed == len(nodes) else ("partial" if nodes_failed > 0 else "success")
+    status = "failed" if nodes_failed == len(ordered_nodes) else ("partial" if nodes_failed > 0 else "success")
     n8n_save_run(run_id, workflow["id"], workflow["name"], status, trigger,
-                 len(nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
-    try:
-        feed_post("section6", "n8n_workflow_run", "n8n",
-                  f"Workflow '{workflow['name']}' ran: {nodes_done}/{len(nodes)} nodes ✅",
-                  {"run_id": run_id, "status": status, "tokens": total_tokens}, icon="⚙️")
-    except Exception:
-        pass
+                 len(ordered_nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
     return run_id, status, outputs, total_tokens
 
 def n8n_create_workflow(name, description, trigger_type, nodes_raw):
@@ -7819,9 +8076,10 @@ if page == "n8n_simulation":
         st.warning("⚠️ No Groq API key — workflows will run in simulation mode. Add key in sidebar for live AI execution.")
 
     # ── Tabs ────────────────────────────────────────────────────────────────────
-    n8n_tab1, n8n_tab2, n8n_tab3, n8n_tab4 = st.tabs([
-        "🗂 Workflows", "▶️ Run & Monitor", "🔨 Build Workflow", "📊 Run History"
+    n8n_tab1, n8n_tab2, n8n_tab3, n8n_tabV, n8n_tab4 = st.tabs([
+        "🗂 Workflows", "▶️ Run & Monitor", "🔨 Build Workflow", "🎨 Visual Builder", "📊 Run History"
     ])
+
 
     # ══ TAB 1: Workflow List ════════════════════════════════════════════════════
     with n8n_tab1:
@@ -7861,15 +8119,27 @@ if page == "n8n_simulation":
                 with c5:
                     btn_col1, btn_col2, btn_col3 = st.columns(3)
                     if btn_col1.button("▶", key=f"run_{wf['id']}", help="Run now", use_container_width=True):
-                        with st.spinner(f"Running '{wf['name']}'..."):
-                            run_id, status, outputs, tokens = n8n_run_workflow(api_key, wf, "manual")
-                        if status == "success":
-                            st.success(f"✅ Done! {len(nodes_list)} nodes, {tokens} tokens")
-                        elif status == "partial":
-                            st.warning("⚠️ Partial success")
-                        else:
-                            st.error("❌ Workflow failed")
-                        st.rerun()
+                        st.markdown("---")
+                        log_placeholder = st.empty()
+                        n8n_log_lines = []
+                        def n8n_stream_log(msg):
+                            n8n_log_lines.append(msg)
+                            hlines = []
+                            for ln in n8n_log_lines[-12:]:
+                                c = "#10e87e" if "✅" in ln or "🔌" in ln else ("#ff4757" if "❌" in ln else "#94a3b8")
+                                hlines.append(f'<div style="color:{c};font-family:monospace;font-size:0.8rem;padding:2px 0;">[{datetime.datetime.now().strftime("%H:%M:%S")}] {ln}</div>')
+                            log_placeholder.markdown(f'<div style="background:#020c02;border:1px solid #1e3a1e;border-radius:8px;padding:12px;margin-bottom:12px;">{"".join(hlines)}</div>', unsafe_allow_html=True)
+
+                        try:
+                            run_id, status, outputs, tokens = n8n_run_workflow(api_key, wf, "manual", progress_cb=n8n_stream_log)
+                            if status == "success":
+                                st.success(f"✅ Workflow '{wf['name']}' complete!")
+                            else:
+                                st.warning(f"⚠️ Workflow finished with status: {status}")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as ex:
+                            st.error(f"❌ Execution failed: {ex}")
                     toggle_label = "⏸" if active else "▶"
                     if btn_col2.button(toggle_label, key=f"tog_{wf['id']}", help="Toggle active/pause", use_container_width=True):
                         n8n_toggle_workflow(wf["id"], not active)
@@ -8147,6 +8417,49 @@ if page == "n8n_simulation":
                               (new_wf_name, new_wf_desc, new_trigger, json.dumps(updated_nodes), edit_wf["id"]))
                 st.success(f"✅ Updated '{new_wf_name}'!")
                 st.rerun()
+
+    # ══ TAB V: Visual Builder ══════════════════════════════════════════════════
+        # ── THE BRIDGE: Visual to DB sync ──
+        # We use a hidden text input and a small JS snippet to get data out of the iframe
+        sync_val = st.text_area("Sync Data (Internal)", key="n8n_sync_data", label_visibility="collapsed", height=1)
+        if sync_val:
+            try:
+                data = json.loads(sync_val)
+                if data.get("action") == "save_wf":
+                    wf_nodes = data.get("nodes", [])
+                    wf_edges = data.get("edges", [])
+                    # Save to a special "Active Draft" workflow
+                    with db() as c:
+                        c.execute("INSERT OR REPLACE INTO n8n_workflows (id,name,description,trigger_type,nodes,edges) VALUES (?,?,?,?,?,?)",
+                                  ("wf-design-canvas", "🎨 Visual Canvas Design", "Live design from the visual builder", "manual", json.dumps(wf_nodes), json.dumps(wf_edges)))
+                    st.toast("✅ Workflow synced to engine database!", icon="🎉")
+            except Exception: pass
+
+        n8n_html = build_n8n_html(api_key if api_key else "")
+        components.html(n8n_html, height=800, scrolling=True)
+        
+        # Action Bar for Visual Builder
+        c_sync1, c_sync2 = st.columns([1,1])
+        if c_sync1.button("🚀 Run Synced Design on Engine", use_container_width=True, type="primary"):
+            with db() as c:
+                wf = c.execute("SELECT * FROM n8n_workflows WHERE id='wf-design-canvas'").fetchone()
+            if wf:
+                st.info("Initiating engine-side execution with real API access...")
+                log_p = st.empty()
+                n8n_run_workflow(api_key, dict(wf), progress_cb=lambda m: log_p.write(f"⚙️ {m}"))
+                st.success("Workflow execution complete! Check Run History for details.")
+            else:
+                st.error("No synced design found. Click 'Save' in the visual builder first.")
+        
+        with st.expander("ℹ️ How to use the Visual Builder"):
+            st.markdown("""
+            1. **Drag** agent nodes from the left sidebar onto the canvas.
+            2. **Connect** nodes by dragging from the output port (right) to an input port (left).
+            3. **Delete** a node by selecting it and pressing Delete (or use Clear to start over).
+            4. **Run** the workflow to see agents process data in sequence.
+            5. **Real API:** If your Groq key is set in the sidebar, these nodes hit the real Llama-3 models.
+            """)
+
 
     # ══ TAB 4: Run History ═════════════════════════════════════════════════════
     with n8n_tab4:
