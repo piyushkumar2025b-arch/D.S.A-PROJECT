@@ -1174,6 +1174,64 @@ st.markdown("""
     .run-history-card.failed  { border-left: 3px solid var(--red); }
 
     /* ── HIDE STREAMLIT BRANDING ─────────────────────────────────── */
+    /* ── TOAST NOTIFICATION SYSTEM ───────────────────────────────── */
+    .saap-toast {
+        position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+        background: var(--surface2); border: 1px solid var(--border2);
+        border-radius: var(--radius); padding: 14px 18px;
+        min-width: 260px; max-width: 380px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+        animation: toast-in 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        font-family: 'Outfit', sans-serif;
+    }
+    .saap-toast.success { border-left: 3px solid var(--green); }
+    .saap-toast.error   { border-left: 3px solid var(--red); }
+    .saap-toast.info    { border-left: 3px solid var(--blue); }
+    .saap-toast.warn    { border-left: 3px solid var(--amber); }
+    @keyframes toast-in {
+        from { opacity:0; transform: translateX(40px) scale(0.95); }
+        to   { opacity:1; transform: translateX(0) scale(1); }
+    }
+
+    /* ── IMPROVED STATUS BADGES ───────────────────────────────────── */
+    .status-live { display:inline-flex;align-items:center;gap:5px;background:rgba(16,232,126,0.1);border:1px solid rgba(16,232,126,0.25);border-radius:99px;padding:3px 10px;font-size:0.7rem;color:#10e87e;font-weight:700;font-family:'JetBrains Mono',monospace; }
+    .status-live::before { content:"";width:6px;height:6px;background:#10e87e;border-radius:50%;animation:pulse 2s infinite;display:inline-block; }
+    .status-sim { display:inline-flex;align-items:center;gap:5px;background:rgba(255,179,64,0.1);border:1px solid rgba(255,179,64,0.25);border-radius:99px;padding:3px 10px;font-size:0.7rem;color:#ffb340;font-weight:700;font-family:'JetBrains Mono',monospace; }
+    .status-offline { display:inline-flex;align-items:center;gap:5px;background:rgba(74,98,128,0.1);border:1px solid rgba(74,98,128,0.25);border-radius:99px;padding:3px 10px;font-size:0.7rem;color:#4a6280;font-weight:700;font-family:'JetBrains Mono',monospace; }
+
+    /* ── IMPROVED AGENT CARDS ─────────────────────────────────────── */
+    .agent-card-v2 {
+        background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 18px 20px;
+        position: relative; overflow: hidden;
+        transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+        cursor: pointer;
+    }
+    .agent-card-v2:hover {
+        border-color: rgba(79,142,247,0.4);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(79,142,247,0.15), 0 0 0 1px rgba(79,142,247,0.1);
+    }
+
+    /* ── PIPELINE STEP CARD ───────────────────────────────────────── */
+    .pipeline-step {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 10px 16px;
+        display: flex; align-items: center; gap: 10px;
+        margin: 4px 0; font-family: 'Outfit', sans-serif;
+        transition: border-color 0.2s;
+    }
+    .pipeline-step:hover { border-color: var(--border2); }
+
+    /* ── INFO CALLOUT BOXES ───────────────────────────────────────── */
+    .callout { border-radius:var(--radius);padding:14px 18px;margin:10px 0;font-family:'Outfit',sans-serif;font-size:0.88rem; }
+    .callout-info { background:rgba(79,142,247,0.07);border:1px solid rgba(79,142,247,0.2);color:var(--blue-bright); }
+    .callout-success { background:rgba(16,232,126,0.07);border:1px solid rgba(16,232,126,0.2);color:#86efac; }
+    .callout-warn { background:rgba(255,179,64,0.07);border:1px solid rgba(255,179,64,0.2);color:#fcd34d; }
+    .callout-error { background:rgba(255,71,87,0.07);border:1px solid rgba(255,71,87,0.2);color:#fca5a5; }
+
     #MainMenu, footer, header { visibility: hidden; }
     .stDeployButton { display: none; }
 
@@ -1511,14 +1569,62 @@ def get_schedules():
         return [dict(r) for r in rows]
 
 def run_scheduled_automation(auto_id):
-    # This runs in background thread
+    """Background scheduler: execute the automation end-to-end via hub_run_automation."""
     print(f"[SCHEDULER] Running automation {auto_id}")
-    # In a real app, this would call the automation runner logic.
-    # For now, it logs execution to the DB.
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("UPDATE schedules SET next_run = ? WHERE automation_id = ?",
-                     ((datetime.datetime.now() + datetime.timedelta(days=1)).isoformat(), auto_id))
-        conn.commit()
+    sched_row_dict = {}
+    try:
+        # Load automation record
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM hub_automations WHERE id=?", (auto_id,)).fetchone()
+            sched_row = conn.execute("SELECT * FROM schedules WHERE automation_id=?", (auto_id,)).fetchone()
+            if sched_row:
+                sched_row_dict = dict(sched_row)
+        if not row:
+            print(f"[SCHEDULER] Automation {auto_id} not found")
+            return
+        automation = dict(row)
+        # Get Groq key from secrets or env
+        groq_key = None
+        try:
+            import streamlit as _st
+            groq_key = _st.secrets.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+        if not groq_key:
+            groq_key = os.environ.get("GROQ_API_KEY", "")
+        if not groq_key:
+            print(f"[SCHEDULER] No GROQ key — skipping automation {auto_id}")
+            return
+        # Use the automation's creator as member context
+        created_by_id = automation.get("created_by_id", "hub-admin-1")
+        all_connections = hub_get_api_connections(created_by_id)
+        member = {
+            "id": created_by_id,
+            "name": automation.get("created_by_name", "Scheduler"),
+            "role": "Automation"
+        }
+        goal = automation.get("goal_template", f"Run scheduled automation: {automation.get('name', '')}")
+        print(f"[SCHEDULER] Executing: {automation.get('name')} | Goal: {goal[:80]}")
+        result = hub_run_automation(groq_key, automation, goal, member, all_connections)
+        print(f"[SCHEDULER] Done run_id={result.get('run_id')} agents={len(result.get('agent_results', {}))}")
+    except Exception as e:
+        print(f"[SCHEDULER] Error in automation {auto_id}: {e}")
+    finally:
+        # Always update next_run timestamp
+        try:
+            interval_m = int(sched_row_dict.get("interval_min", 1440))
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute(
+                    "UPDATE schedules SET next_run=? WHERE automation_id=?",
+                    (
+                        (datetime.datetime.now() + datetime.timedelta(minutes=interval_m)).isoformat(),
+                        auto_id,
+                    ),
+                )
+                conn.commit()
+        except Exception as fe:
+            print(f"[SCHEDULER] Could not update next_run: {fe}")
 
 # Initialize on module load
 init_scheduler()
@@ -1613,6 +1719,7 @@ def update_integration(name, connected, key_hash=None):
         else:
             c.execute("UPDATE org_integrations SET connected=?, last_tested=? WHERE name=?",
                 (connected, now, name))
+    get_integrations.clear()  # Invalidate cache after write
     # Clear cache after mutation so next call gets fresh data
     get_integrations.clear()
 
@@ -3915,6 +4022,7 @@ if page == "org_mode":
                 with db() as c:
                     c.execute("INSERT INTO org_members (id,name,role,email,department,permissions,avatar_color) VALUES (?,?,?,?,?,?,?)",
                         (str(uuid.uuid4()), nm_name, nm_role, nm_email, nm_dept, json.dumps(nm_perms), nm_color))
+                get_org_members.clear()  # Invalidate cache
                 st.success(f"Added {nm_name}!"); st.rerun()
 
         # Workflow access log
@@ -4316,35 +4424,62 @@ elif "📘" in section and page == "🚀 Run Agent":
 
 elif "📘" in section and page == "🔗 Pipeline Builder":
     st.markdown('<span class="sim-badge">SECTION 1 — WORKFLOW DEMO</span>', unsafe_allow_html=True)
-    st.title("🔗 Visual Workflow Builder")
-    
+    st.markdown("""
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+  <div style="font-size:2rem;">🔗</div>
+  <div>
+    <h1 style="margin:0;font-size:2rem;font-weight:800;letter-spacing:-0.03em;color:#eef2ff;">Visual Workflow Builder</h1>
+    <p style="margin:0;color:#8ba3c4;font-size:0.9rem;">Design, visualise and execute multi-agent pipelines</p>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Workflow Visualizer ─────────────────────────────────────────────────
+    st.markdown('<div class="callout callout-info">🎨 <strong>Visualizer</strong> — Drag agents into the composer to preview the live topology before building your pipeline.</div>', unsafe_allow_html=True)
+
     if "vis_steps" not in st.session_state:
         st.session_state.vis_steps = ["gmail-summary", "sheets-agent", "slack-agent"]
-    
+
     col_c, col_v = st.columns([1, 2])
     with col_c:
-        st.subheader("Composer")
+        st.markdown('<div style="font-size:0.72rem;color:rgba(79,142,247,0.8);text-transform:uppercase;letter-spacing:0.12em;font-family:\'JetBrains Mono\',monospace;margin-bottom:12px;font-weight:600;">🧩 Node Composer</div>', unsafe_allow_html=True)
         for i, step in enumerate(st.session_state.vis_steps):
             c1, c2 = st.columns([4, 1])
-            st.session_state.vis_steps[i] = c1.selectbox(f"Node {i+1}", list(SUB_AGENTS.keys()), 
-                index=list(SUB_AGENTS.keys()).index(step), key=f"vis_s_{i}")
-            if c2.button("×", key=f"vis_rm_{i}"):
+            agent_keys = list(SUB_AGENTS.keys())
+            idx_val = agent_keys.index(step) if step in agent_keys else 0
+            st.session_state.vis_steps[i] = c1.selectbox(
+                f"Node {i+1}", agent_keys,
+                index=idx_val, key=f"vis_s_{i}",
+                format_func=lambda k: f"{SUB_AGENTS[k]['icon']} {SUB_AGENTS[k]['name']}"
+            )
+            if c2.button("×", key=f"vis_rm_{i}", help="Remove node", disabled=len(st.session_state.vis_steps) <= 1):
                 st.session_state.vis_steps.pop(i); st.rerun()
-        if st.button("➕ Add Node"):
+        col_add, col_clr = st.columns(2)
+        if col_add.button("➕ Add Node", use_container_width=True):
             st.session_state.vis_steps.append("notion-agent"); st.rerun()
-        
+        if col_clr.button("🔄 Reset", use_container_width=True):
+            st.session_state.vis_steps = ["gmail-summary", "sheets-agent", "slack-agent"]; st.rerun()
+
     with col_v:
-        st.subheader("Workflow Topology")
+        st.markdown('<div style="font-size:0.72rem;color:rgba(79,142,247,0.8);text-transform:uppercase;letter-spacing:0.12em;font-family:\'JetBrains Mono\',monospace;margin-bottom:12px;font-weight:600;">📐 Live Topology</div>', unsafe_allow_html=True)
         icon_map = {k: v["icon"] for k,v in SUB_AGENTS.items()}
         name_map = {k: v["name"] for k,v in SUB_AGENTS.items()}
         st.markdown(render_workflow_diagram(st.session_state.vis_steps, icon_map, name_map), unsafe_allow_html=True)
         h_score = calculate_workflow_health_score(st.session_state.vis_steps)
-        st.metric("Workflow Health Score", f"{h_score}%")
-        st.progress(h_score/100)
+        score_color = "#10e87e" if h_score >= 80 else "#ffb340" if h_score >= 60 else "#ff4757"
+        st.markdown(f"""
+<div style="display:flex;align-items:center;gap:12px;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;">
+  <div style="flex:1;">
+    <div style="font-size:0.68rem;color:#4a6280;text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">Workflow Health Score</div>
+    <div style="background:rgba(255,255,255,0.04);border-radius:99px;height:6px;overflow:hidden;">
+      <div style="height:6px;background:linear-gradient(90deg,{score_color},{score_color}99);border-radius:99px;width:{h_score}%;transition:width 0.5s;"></div>
+    </div>
+  </div>
+  <div style="font-size:1.4rem;font-weight:800;color:{score_color};font-family:'Outfit',sans-serif;">{h_score}%</div>
+</div>
+""", unsafe_allow_html=True)
     
-    # Rest of current logic for running if needed, or we just keep it clean here
-    st.stop()
-
+    # Pipeline builder below the visualizer
     agents = get_agents()
     agent_names = [a["name"] for a in agents]
     agent_icon_map = {a["name"]: a["icon"] for a in agents}
@@ -4363,27 +4498,33 @@ elif "📘" in section and page == "🔗 Pipeline Builder":
                 {"agent": "slack-agent",    "payload": {**DEFAULT_PAYLOADS["slack-agent"], "action": "send_message"}},
             ]
 
-        st.subheader("Steps")
+        st.markdown('<div style="font-size:0.72rem;color:rgba(79,142,247,0.8);text-transform:uppercase;letter-spacing:0.12em;font-family:\'JetBrains Mono\',monospace;margin-bottom:14px;font-weight:600;">🔢 Pipeline Steps</div>', unsafe_allow_html=True)
         to_remove = []
         for i, step in enumerate(st.session_state.pip_steps):
+            agent_icon = next((a["icon"] for a in agents if a["name"] == step["agent"]), "🤖")
             with st.container(border=True):
                 h1, h2, h3 = st.columns([.3, 2.4, .3])
-                h1.markdown(f"### Step {i+1}")
-                new_agent = h2.selectbox("Agent", agent_names,
+                h1.markdown(f'<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:rgba(79,142,247,0.12);border:1px solid rgba(79,142,247,0.25);font-weight:700;color:#4f8ef7;font-family:\'JetBrains Mono\',sans-serif;font-size:0.8rem;">{i+1}</div>', unsafe_allow_html=True)
+                new_agent = h2.selectbox(
+                    f"Agent", agent_names,
                     index=agent_names.index(step["agent"]) if step["agent"] in agent_names else 0,
-                    key=f"pip_agent_{i}")
+                    key=f"pip_agent_{i}",
+                    format_func=lambda n: f"{next((a['icon'] for a in agents if a['name']==n), '🤖')} {n}"
+                )
                 st.session_state.pip_steps[i]["agent"] = new_agent
-                if h3.button("🗑", key=f"pip_rm_{i}", disabled=len(st.session_state.pip_steps) <= 1):
+                if h3.button("🗑", key=f"pip_rm_{i}", disabled=len(st.session_state.pip_steps) <= 1, help="Remove step"):
                     to_remove.append(i)
 
-                p_str = st.text_area("Payload", json.dumps(step["payload"], indent=2), height=90, key=f"pip_payload_{i}")
+                p_str = st.text_area("Payload (JSON)", json.dumps(step["payload"], indent=2), height=90, key=f"pip_payload_{i}")
                 try:
                     st.session_state.pip_steps[i]["payload"] = json.loads(p_str)
+                    # Show green check if valid JSON
+                    st.markdown('<div style="font-size:0.7rem;color:#10e87e;">✓ Valid JSON</div>', unsafe_allow_html=True)
                 except (json.JSONDecodeError, ValueError):
-                    pass  # Keep existing payload if user input is not yet valid JSON
+                    st.markdown('<div style="font-size:0.7rem;color:#ff4757;">⚠ Invalid JSON — fix before running</div>', unsafe_allow_html=True)
 
                 if i < len(st.session_state.pip_steps) - 1:
-                    st.markdown("⬇️ *previous output injected as context*")
+                    st.markdown('<div style="text-align:center;color:#4f8ef7;font-size:0.8rem;padding:4px 0;">⬇ output passed as context ⬇</div>', unsafe_allow_html=True)
 
         for idx in reversed(to_remove):
             st.session_state.pip_steps.pop(idx)
@@ -4422,37 +4563,64 @@ elif "📘" in section and page == "🔗 Pipeline Builder":
                 fin_status = "COMPLETED" if success else "FAILED"
                 save_pipeline_run(run_id, "", pip_name, fin_status, len(results), len(st.session_state.pip_steps), results)
                 if success:
-                    st.success(f"🎉 Pipeline **{pip_name}** completed all {len(results)} steps!")
+                    st.success(f"🎉 Pipeline **{pip_name}** — all {len(results)} steps completed!")
+                    st.balloons()
+                    with st.expander("📊 View Full Results"):
+                        st.json(results)
                 else:
-                    st.warning(f"Pipeline stopped after {len(results)} of {len(st.session_state.pip_steps)} steps.")
+                    st.warning(f"⚠️ Pipeline stopped at step {len(results)+1} of {len(st.session_state.pip_steps)}.")
 
     with tab_saved:
+        saved_pips = get_pipelines()  # Refresh list each time tab renders
         if not saved_pips:
-            st.info("No saved pipelines yet.")
+            st.markdown('''<div class="callout callout-info">
+                📭 <strong>No saved pipelines yet.</strong><br/>
+                <span style="font-size:0.85rem;">Create one in the <strong>New Pipeline</strong> tab — build your steps, then click 💾 Save Pipeline.</span>
+            </div>''', unsafe_allow_html=True)
         else:
+            st.markdown(f'<div style="font-size:0.72rem;color:#4a6280;font-family:\'JetBrains Mono\',monospace;margin-bottom:12px;">{len(saved_pips)} saved pipeline{"s" if len(saved_pips)!=1 else ""}</div>', unsafe_allow_html=True)
             for pip in saved_pips:
                 steps = json.loads(pip["steps"])
-                with st.expander(f"🔗 **{pip['name']}** — {len(steps)} steps — {pip['created_at'][:10]}"):
-                    st.caption(pip.get("description", ""))
+                step_names = " → ".join(f"{agent_icon_map.get(s['agent'],'🤖')}" for s in steps[:5])
+                with st.expander(f"🔗 **{pip['name']}** &nbsp;·&nbsp; {len(steps)} steps &nbsp;·&nbsp; {pip['created_at'][:10]}"):
+                    if pip.get("description"):
+                        st.markdown(f'<div style="color:#8ba3c4;font-size:0.88rem;margin-bottom:10px;">{pip["description"]}</div>', unsafe_allow_html=True)
+                    # Step preview
                     for j, s in enumerate(steps):
-                        st.markdown(f"**Step {j+1}:** {agent_icon_map.get(s['agent'],'🤖')} `{s['agent']}`")
+                        icon = agent_icon_map.get(s["agent"], "🤖")
+                        st.markdown(
+                            f'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);">' +
+                            f'<span style="width:20px;height:20px;border-radius:50%;background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.2);display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;color:#4f8ef7;">{j+1}</span>' +
+                            f'<span style="color:#8ba3c4;font-size:0.85rem;">{icon} <code style="color:#60a5fa;">{s["agent"]}</code></span>' +
+                            (f'<span style="color:#4a6280;font-size:0.72rem;margin-left:4px;">↓ pass context</span>' if j < len(steps)-1 else '') +
+                            '</div>', unsafe_allow_html=True
+                        )
+                    st.markdown("<br/>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
-                    if c1.button("▶ Run", key=f"run_pip_{pip['id']}", type="primary"):
+                    if c1.button("▶ Run Pipeline", key=f"run_pip_{pip['id']}", type="primary", use_container_width=True):
                         if not api_key:
-                            st.error("Add your Groq API key.")
+                            st.error("🔑 Add your Groq API key in the sidebar first.")
                         else:
                             results = []
+                            all_ok = True
+                            prog = st.progress(0, text="Starting pipeline…")
                             for i, step in enumerate(steps):
+                                prog.progress((i)/len(steps), text=f"Step {i+1}/{len(steps)}: {step['agent']}…")
                                 ctx = json.dumps(results[-1], indent=2)[:1000] if results else ""
                                 outcome = run_agent_task(api_key, step["agent"], step["payload"], extra_context=ctx)
                                 if outcome["status"] == "COMPLETED":
                                     r = outcome["result"]; r.pop("_meta", None); results.append(r)
-                                    st.success(f"Step {i+1} ✅")
+                                    st.success(f"✅ Step {i+1}: {step['agent']} complete")
                                 else:
-                                    st.error(f"Step {i+1} ❌"); break
-                            st.json(results)
-                    if c2.button("🗑 Delete", key=f"del_pip_{pip['id']}"):
-                        delete_pipeline(pip["id"]); st.rerun()
+                                    st.error(f"❌ Step {i+1}: {step['agent']} failed — {outcome['result'].get('error','Unknown')}"); all_ok = False; break
+                            prog.progress(1.0, text="Done!" if all_ok else "Stopped with errors")
+                            if all_ok:
+                                st.balloons()
+                                st.json(results)
+                    if c2.button("🗑 Delete", key=f"del_pip_{pip['id']}", use_container_width=True):
+                        delete_pipeline(pip["id"])
+                        st.toast(f"Pipeline '{pip['name']}' deleted", icon="🗑")
+                        st.rerun()
 
 elif "📘" in section and page == "🧪 Playground":
     st.markdown('<span class="sim-badge">SECTION 1 — WORKFLOW DEMO</span>', unsafe_allow_html=True)
@@ -7930,7 +8098,8 @@ def n8n_get_runs(workflow_id=None, limit=50):
 
 def n8n_save_run(run_id, workflow_id, workflow_name, status, trigger, nodes_total,
                  nodes_done, nodes_failed, output, error, tokens):
-    finished = datetime.datetime.now().isoformat() if status in ("success","failed") else ""
+    # Fix: partial runs also get a finished_at timestamp so Run History sorts correctly
+    finished = datetime.datetime.now().isoformat() if status in ("success", "failed", "partial") else ""
     with db() as c:
         c.execute("""INSERT OR REPLACE INTO n8n_runs
             (id,workflow_id,workflow_name,status,trigger,nodes_total,nodes_done,nodes_failed,output,error,tokens_used,finished_at)
@@ -7953,23 +8122,32 @@ def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
 
     # Simple topological sort for Python
     def get_execution_order(nodes, edges):
-        visited = set()
-        order = []
+        """Kahn's algorithm (BFS topological sort) — correct and cycle-safe."""
+        from collections import deque
         node_map = {n["id"]: n for n in nodes if "id" in n}
-        def visit(nid):
-            if nid in visited: return
-            visited.add(nid)
-            # Find nodes that depend on this one
-            for edge in edges:
-                if edge["from"] == nid:
-                    visit(edge["to"])
-            order.insert(0, node_map[nid])
-        
-        # Start from trigger or orphan nodes
-        starts = [n["id"] for n in nodes if not any(e["to"] == n["id"] for e in edges)]
-        if not starts: starts = [n["id"] for n in nodes]
-        for nid in starts: visit(nid)
-        return order[::-1] # Reverse to get correct forward order
+        # Build adjacency and in-degree
+        adj = {nid: [] for nid in node_map}
+        in_deg = {nid: 0 for nid in node_map}
+        for edge in edges:
+            src, dst = edge.get("from", ""), edge.get("to", "")
+            if src in adj and dst in in_deg:
+                adj[src].append(dst)
+                in_deg[dst] += 1
+        # Start with nodes that have no incoming edges
+        queue = deque([nid for nid, deg in in_deg.items() if deg == 0])
+        order = []
+        while queue:
+            nid = queue.popleft()
+            if nid in node_map:
+                order.append(node_map[nid])
+            for nxt in adj.get(nid, []):
+                in_deg[nxt] -= 1
+                if in_deg[nxt] == 0:
+                    queue.append(nxt)
+        # If cycle detected (not all nodes processed), fall back to original order
+        if len(order) < len(node_map):
+            return [node_map[nid] for nid in node_map]
+        return order
 
     ordered_nodes = get_execution_order(nodes_list, edges_list)
 
@@ -7983,8 +8161,11 @@ def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
         
         if progress_cb: progress_cb(f"🚀 Initialising node: {node_type}...")
         
-        # Check for real live data
-        member_id = st.session_state.get("hub_member", {}).get("id", "hub-admin-1")
+        # Check for real live data — use .get() safely, won't crash if called outside Streamlit context
+        try:
+            member_id = st.session_state.get("hub_member", {}).get("id", "hub-admin-1")
+        except Exception:
+            member_id = "hub-admin-1"
         
         # Build context from previous outputs
         ctx_parts = []
@@ -8026,7 +8207,15 @@ def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
             nodes_failed += 1
             errors.append(f"{node_type}: {str(e)}")
 
-    status = "failed" if nodes_failed == len(ordered_nodes) else ("partial" if nodes_failed > 0 else "success")
+    # Fix: avoid ZeroDivisionError and correctly handle 0-node edge case
+    if len(ordered_nodes) == 0:
+        status = "success"
+    elif nodes_failed == len(ordered_nodes):
+        status = "failed"
+    elif nodes_failed > 0:
+        status = "partial"
+    else:
+        status = "success"
     n8n_save_run(run_id, workflow["id"], workflow["name"], status, trigger,
                  len(ordered_nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
     return run_id, status, outputs, total_tokens
@@ -8122,13 +8311,14 @@ if page == "n8n_simulation":
                         st.markdown("---")
                         log_placeholder = st.empty()
                         n8n_log_lines = []
-                        def n8n_stream_log(msg):
-                            n8n_log_lines.append(msg)
+                        # Define log function with explicit capture to avoid closure bug
+                        def n8n_stream_log(msg, _log=n8n_log_lines, _ph=log_placeholder):
+                            _log.append(msg)
                             hlines = []
-                            for ln in n8n_log_lines[-12:]:
+                            for ln in _log[-12:]:
                                 c = "#10e87e" if "✅" in ln or "🔌" in ln else ("#ff4757" if "❌" in ln else "#94a3b8")
                                 hlines.append(f'<div style="color:{c};font-family:monospace;font-size:0.8rem;padding:2px 0;">[{datetime.datetime.now().strftime("%H:%M:%S")}] {ln}</div>')
-                            log_placeholder.markdown(f'<div style="background:#020c02;border:1px solid #1e3a1e;border-radius:8px;padding:12px;margin-bottom:12px;">{"".join(hlines)}</div>', unsafe_allow_html=True)
+                            _ph.markdown(f'<div style="background:#020c02;border:1px solid #1e3a1e;border-radius:8px;padding:12px;margin-bottom:12px;">{"".join(hlines)}</div>', unsafe_allow_html=True)
 
                         try:
                             run_id, status, outputs, tokens = n8n_run_workflow(api_key, wf, "manual", progress_cb=n8n_stream_log)
@@ -8145,9 +8335,18 @@ if page == "n8n_simulation":
                         n8n_toggle_workflow(wf["id"], not active)
                         st.rerun()
                     if btn_col3.button("🗑", key=f"del_{wf['id']}", help="Delete workflow", use_container_width=True):
-                        n8n_delete_workflow(wf["id"])
-                        st.success(f"Deleted '{wf['name']}'")
-                        st.rerun()
+                        st.session_state[f"confirm_del_n8n_{wf['id']}"] = True
+                    if st.session_state.get(f"confirm_del_n8n_{wf['id']}"):
+                        st.warning(f"⚠️ Delete **{wf['name']}** and all its run history? This cannot be undone.")
+                        _yes, _no = st.columns(2)
+                        if _yes.button("✅ Yes, Delete", key=f"yes_del_{wf['id']}", type="primary"):
+                            n8n_delete_workflow(wf["id"])
+                            st.session_state.pop(f"confirm_del_n8n_{wf['id']}", None)
+                            st.success(f"Deleted '{wf['name']}'")
+                            st.rerun()
+                        if _no.button("❌ Cancel", key=f"no_del_{wf['id']}"):
+                            st.session_state.pop(f"confirm_del_n8n_{wf['id']}", None)
+                            st.rerun()
 
                 # Node pipeline visualisation
                 with st.expander(f"📋 View pipeline — {wf['name']}", expanded=False):
@@ -8168,14 +8367,15 @@ if page == "n8n_simulation":
                 st.markdown("")  # spacing
             st.markdown("---")
 
-        # Summary metrics
-        total_runs = sum(w["run_count"] for w in workflows)
-        active_count = sum(1 for w in workflows if w.get("active",1))
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Total Workflows", len(workflows))
-        m2.metric("Active", active_count)
-        m3.metric("Total Runs", total_runs)
-        m4.metric("Trigger Types", len(set(w["trigger_type"] for w in workflows)))
+        # Summary metrics (safe — workflows could be empty here)
+        if workflows:
+            total_runs = sum(w.get("run_count", 0) for w in workflows)
+            active_count = sum(1 for w in workflows if w.get("active", 1))
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Workflows", len(workflows))
+            m2.metric("Active", active_count)
+            m3.metric("Total Runs", total_runs)
+            m4.metric("Trigger Types", len(set(w.get("trigger_type","manual") for w in workflows)))
 
     # ══ TAB 2: Run & Monitor ═══════════════════════════════════════════════════
     with n8n_tab2:
@@ -8183,6 +8383,9 @@ if page == "n8n_simulation":
 
         workflows = n8n_get_workflows()
         wf_names = {w["name"]: w for w in workflows}
+        if not wf_names:
+            st.info("No workflows yet. Go to **Build Workflow** tab to create your first one.")
+            st.stop()
         sel_wf_name = st.selectbox("Select Workflow", list(wf_names.keys()))
         sel_wf = wf_names[sel_wf_name]
         nodes_list = json.loads(sel_wf.get("nodes","[]"))
@@ -8290,8 +8493,8 @@ if page == "n8n_simulation":
                 feed_post("section6","n8n_run","n8n",
                           f"Workflow '{sel_wf['name']}' → {final_status} ({nodes_done}/{len(nodes_list)} nodes)",
                           {"run_id":run_id,"tokens":total_tokens},icon="⚙️")
-            except Exception:
-                pass
+            except Exception as _feed_err:
+                import sys; print(f"[SAAP] n8n feed post warning: {_feed_err}", file=sys.stderr)
 
             progress_bar.progress(1.0)
             if final_status == "success":
@@ -8372,8 +8575,8 @@ if page == "n8n_simulation":
                 try:
                     feed_post("section6","workflow_created","n8n",
                               f"New workflow created: {wf_name} ({node_count} nodes)",icon="➕")
-                except Exception:
-                    pass
+                except Exception as _feed_err:
+                    import sys; print(f"[SAAP] n8n feed post warning: {_feed_err}", file=sys.stderr)
                 st.rerun()
             else:
                 st.error("Please enter a workflow name")
@@ -8397,9 +8600,14 @@ if page == "n8n_simulation":
                 updated_nodes = []
                 for i, node in enumerate(edit_nodes):
                     ec1, ec2 = st.columns([2,3])
-                    # Find matching type
-                    matching = [t[0] for t in AVAILABLE_NODE_TYPES if t[1] == node.get("agent","synthesizer")]
-                    default_idx = node_type_labels.index(matching[0]) if matching else 0
+                    # Find matching type — guard against missing/renamed agent IDs
+                    matching = [t[0] for t in AVAILABLE_NODE_TYPES if t[1] == node.get("agent", "synthesizer")]
+                    if not matching:
+                        matching = [t[0] for t in AVAILABLE_NODE_TYPES]  # fallback to first
+                    try:
+                        default_idx = node_type_labels.index(matching[0])
+                    except ValueError:
+                        default_idx = 0
                     e_type = ec1.selectbox(f"Node {i+1} Type", node_type_labels,
                                            index=default_idx, key=f"edit_ntype_{i}")
                     e_info = node_type_map[e_type]
@@ -8419,6 +8627,7 @@ if page == "n8n_simulation":
                 st.rerun()
 
     # ══ TAB V: Visual Builder ══════════════════════════════════════════════════
+    with n8n_tabV:
         # ── THE BRIDGE: Visual to DB sync ──
         # We use a hidden text input and a small JS snippet to get data out of the iframe
         sync_val = st.text_area("Sync Data (Internal)", key="n8n_sync_data", label_visibility="collapsed", height=1)
@@ -8433,7 +8642,8 @@ if page == "n8n_simulation":
                         c.execute("INSERT OR REPLACE INTO n8n_workflows (id,name,description,trigger_type,nodes,edges) VALUES (?,?,?,?,?,?)",
                                   ("wf-design-canvas", "🎨 Visual Canvas Design", "Live design from the visual builder", "manual", json.dumps(wf_nodes), json.dumps(wf_edges)))
                     st.toast("✅ Workflow synced to engine database!", icon="🎉")
-            except Exception: pass
+            except Exception as _sync_err:
+                st.warning(f"⚠️ Sync parse error: {_sync_err}")
 
         n8n_html = build_n8n_html(api_key if api_key else "")
         components.html(n8n_html, height=800, scrolling=True)
@@ -8446,8 +8656,15 @@ if page == "n8n_simulation":
             if wf:
                 st.info("Initiating engine-side execution with real API access...")
                 log_p = st.empty()
-                n8n_run_workflow(api_key, dict(wf), progress_cb=lambda m: log_p.write(f"⚙️ {m}"))
-                st.success("Workflow execution complete! Check Run History for details.")
+                _run_id, _status, _outputs, _tokens = n8n_run_workflow(
+                    api_key, dict(wf), progress_cb=lambda m: log_p.write(f"⚙️ {m}")
+                )
+                if _status == "success":
+                    st.success(f"✅ Execution complete! {_tokens:,} tokens used. Check Run History for details.")
+                elif _status == "partial":
+                    st.warning(f"⚠️ Partial execution ({_tokens:,} tokens). Some nodes failed — check Run History.")
+                else:
+                    st.error(f"❌ Workflow execution failed. Check Run History for error details.")
             else:
                 st.error("No synced design found. Click 'Save' in the visual builder first.")
         
