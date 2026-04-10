@@ -46,19 +46,6 @@ import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# ─── Session State Initialization ─────────────────────────────────────────────
-def init_all_session_state():
-    if "hub_logged_in" not in st.session_state:
-        st.session_state.hub_logged_in = False
-    if "hub_member" not in st.session_state:
-        st.session_state.hub_member = None
-    if "chat_user" not in st.session_state:
-        st.session_state.chat_user = None
-    if "platform_ready" not in st.session_state:
-        st.session_state.platform_ready = True
-
-init_all_session_state()
-
 # ─── Enterprise Grade Metadata ────────────────────────────────────────────────
 VERSION = "5.6"  # Improved: perf caching, thread-safe DB, robust JSON parsing, retry logic
 PLATFORM_START_TIME = datetime.datetime.now()
@@ -1499,255 +1486,6 @@ def db():
     conn.execute("PRAGMA cache_size=-8000")   # 8 MB page cache
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
-def init_n8n_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.executescript("""
-        CREATE TABLE IF NOT EXISTS n8n_workflows (
-            id          TEXT PRIMARY KEY,
-            name        TEXT NOT NULL,
-            description TEXT DEFAULT '',
-            trigger_type TEXT DEFAULT 'manual',
-            nodes       TEXT DEFAULT '[]',
-            edges       TEXT DEFAULT '[]',
-            active      INTEGER DEFAULT 1,
-            run_count   INTEGER DEFAULT 0,
-            last_run    TEXT DEFAULT '',
-            created_at  TEXT DEFAULT (datetime('now'))
-        );
-        CREATE TABLE IF NOT EXISTS n8n_runs (
-            id           TEXT PRIMARY KEY,
-            workflow_id  TEXT NOT NULL,
-            workflow_name TEXT NOT NULL,
-            status       TEXT DEFAULT 'pending',
-            trigger      TEXT DEFAULT 'manual',
-            nodes_total  INTEGER DEFAULT 0,
-            nodes_done   INTEGER DEFAULT 0,
-            nodes_failed INTEGER DEFAULT 0,
-            output       TEXT DEFAULT '{}',
-            error        TEXT DEFAULT '',
-            tokens_used  INTEGER DEFAULT 0,
-            started_at   TEXT DEFAULT (datetime('now')),
-            finished_at  TEXT DEFAULT ''
-        );
-        CREATE TABLE IF NOT EXISTS n8n_credentials (
-            id       TEXT PRIMARY KEY,
-            name     TEXT NOT NULL,
-            type     TEXT NOT NULL,
-            data     TEXT DEFAULT '{}',
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_n8n_runs_wf ON n8n_runs(workflow_id);
-        CREATE INDEX IF NOT EXISTS idx_n8n_runs_status ON n8n_runs(status);
-        """)
-        # Seed example workflows
-        example_wfs = [
-            ("wf-001", "📧 Email Digest & Summariser",
-             "Fetch unread Gmail → summarise with AI → post to Slack channel",
-             "schedule",
-             json.dumps([
-                 {"id":"n1","type":"Gmail Trigger","icon":"📧","desc":"Fetch last 10 unread emails","agent":"gmail-summary"},
-                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Summarise emails with LLM","agent":"synthesizer"},
-                 {"id":"n3","type":"Slack Post","icon":"💬","desc":"Post digest to #general","agent":"slack-agent"},
-             ])),
-            ("wf-002", "🐙 GitHub PR Review Bot",
-             "On new PR → AI code review → post review comment → create Jira ticket",
-             "webhook",
-             json.dumps([
-                 {"id":"n1","type":"GitHub Webhook","icon":"🐙","desc":"Trigger on new pull request","agent":"github-agent"},
-                 {"id":"n2","type":"AI Code Review","icon":"🤖","desc":"Analyse PR diff with AI","agent":"synthesizer"},
-                 {"id":"n3","type":"Post Comment","icon":"💬","desc":"Post review to GitHub PR","agent":"github-agent"},
-                 {"id":"n4","type":"Create Jira Ticket","icon":"🎯","desc":"Open tracking ticket in Jira","agent":"jira-agent"},
-             ])),
-            ("wf-003", "📊 Weekly KPI Report",
-             "Pull Sheets data → AI analysis → create Notion report → email to team",
-             "schedule",
-             json.dumps([
-                 {"id":"n1","type":"Sheets Read","icon":"📊","desc":"Pull KPI data from Google Sheets","agent":"sheets-agent"},
-                 {"id":"n2","type":"AI Analyst","icon":"🤖","desc":"Analyse trends and anomalies","agent":"synthesizer"},
-                 {"id":"n3","type":"Notion Page","icon":"📝","desc":"Create weekly report page","agent":"notion-agent"},
-                 {"id":"n4","type":"Gmail Send","icon":"📧","desc":"Email report link to team","agent":"gmail-summary"},
-             ])),
-            ("wf-004", "🏢 New Lead Onboarding",
-             "HubSpot new contact → enrich with web research → create Drive folder → schedule intro call",
-             "webhook",
-             json.dumps([
-                 {"id":"n1","type":"HubSpot Trigger","icon":"🏢","desc":"New contact created in HubSpot","agent":"hubspot-agent"},
-                 {"id":"n2","type":"Web Enrichment","icon":"🌐","desc":"Research lead company & role","agent":"web-scraper"},
-                 {"id":"n3","type":"Drive Folder","icon":"📁","desc":"Create onboarding folder","agent":"drive-manager"},
-                 {"id":"n4","type":"Calendar Event","icon":"📅","desc":"Schedule intro call","agent":"calendar-manager"},
-                 {"id":"n5","type":"Update CRM","icon":"🏢","desc":"Update HubSpot with enriched data","agent":"hubspot-agent"},
-             ])),
-            ("wf-005", "🔍 Competitive Intelligence",
-             "Scrape competitor sites → AI summarise → store in Airtable → Slack alert",
-             "schedule",
-             json.dumps([
-                 {"id":"n1","type":"Web Scraper","icon":"🌐","desc":"Scrape competitor websites","agent":"web-scraper"},
-                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Extract key insights with AI","agent":"synthesizer"},
-                 {"id":"n3","type":"Airtable Write","icon":"🗃️","desc":"Store intelligence in Airtable","agent":"airtable-agent"},
-                 {"id":"n4","type":"Slack Alert","icon":"💬","desc":"Post key findings to #strategy","agent":"slack-agent"},
-             ])),
-        ]
-        conn.executemany(
-            "INSERT OR IGNORE INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
-            example_wfs
-        )
-
-init_n8n_db()
-
-def n8n_get_workflows():
-    with db() as c:
-        rows = c.execute("SELECT * FROM n8n_workflows ORDER BY created_at").fetchall()
-    return [dict(r) for r in rows]
-
-def n8n_get_runs(workflow_id=None, limit=50):
-    with db() as c:
-        if workflow_id:
-            rows = c.execute("SELECT * FROM n8n_runs WHERE workflow_id=? ORDER BY started_at DESC LIMIT ?", (workflow_id, limit)).fetchall()
-        else:
-            rows = c.execute("SELECT * FROM n8n_runs ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()
-    return [dict(r) for r in rows]
-
-def n8n_save_run(run_id, workflow_id, workflow_name, status, trigger, nodes_total,
-                 nodes_done, nodes_failed, output, error, tokens):
-    # Fix: partial runs also get a finished_at timestamp so Run History sorts correctly
-    finished = datetime.datetime.now().isoformat() if status in ("success", "failed", "partial") else ""
-    with db() as c:
-        c.execute("""INSERT OR REPLACE INTO n8n_runs
-            (id,workflow_id,workflow_name,status,trigger,nodes_total,nodes_done,nodes_failed,output,error,tokens_used,finished_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (run_id, workflow_id, workflow_name, status, trigger, nodes_total,
-             nodes_done, nodes_failed, json.dumps(output) if isinstance(output, dict) else output,
-             error, tokens, finished))
-        c.execute("UPDATE n8n_workflows SET run_count=run_count+1, last_run=datetime('now') WHERE id=?", (workflow_id,))
-
-def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
-    """Execute a workflow node-by-node using Groq agents with real-time logging."""
-    run_id = str(uuid.uuid4())
-    nodes_list = json.loads(workflow.get("nodes", "[]"))
-    edges_list = json.loads(workflow.get("edges", "[]"))
-    outputs = {}
-    total_tokens = 0
-    nodes_done = 0
-    nodes_failed = 0
-    errors = []
-
-    # Simple topological sort for Python
-    def get_execution_order(nodes, edges):
-        """Kahn's algorithm (BFS topological sort) — correct and cycle-safe."""
-        from collections import deque
-        node_map = {n["id"]: n for n in nodes if "id" in n}
-        # Build adjacency and in-degree
-        adj = {nid: [] for nid in node_map}
-        in_deg = {nid: 0 for nid in node_map}
-        for edge in edges:
-            src, dst = edge.get("from", ""), edge.get("to", "")
-            if src in adj and dst in in_deg:
-                adj[src].append(dst)
-                in_deg[dst] += 1
-        # Start with nodes that have no incoming edges
-        queue = deque([nid for nid, deg in in_deg.items() if deg == 0])
-        order = []
-        while queue:
-            nid = queue.popleft()
-            if nid in node_map:
-                order.append(node_map[nid])
-            for nxt in adj.get(nid, []):
-                in_deg[nxt] -= 1
-                if in_deg[nxt] == 0:
-                    queue.append(nxt)
-        # If cycle detected (not all nodes processed), fall back to original order
-        if len(order) < len(node_map):
-            return [node_map[nid] for nid in node_map]
-        return order
-
-    ordered_nodes = get_execution_order(nodes_list, edges_list)
-
-    for node in ordered_nodes:
-        # Map agent ID to key if it's the node type (e.g. Gmail Agent -> gmail-summary)
-        agent_id = node.get("agent") or node.get("type", "").lower().replace(" agent","").replace(" ","-")
-        if agent_id == "trigger": continue
-        
-        node_desc = node.get("desc", node.get("label", ""))
-        node_type = node.get("type", "Agent")
-        
-        if progress_cb: progress_cb(f"🚀 Initialising node: {node_type}...")
-        
-        # Check for real live data — use .get() safely, won't crash if called outside Streamlit context
-        try:
-            member_id = st.session_state.get("hub_member", {}).get("id", "hub-admin-1")
-        except Exception:
-            member_id = "hub-admin-1"
-        
-        # Build context from previous outputs
-        ctx_parts = []
-        for pid, pval in outputs.items():
-            ctx_parts.append(f"Node {pid} Output: {json.dumps(pval)[:200]}...")
-        workflow_ctx = f"WF: {workflow['name']} | Node: {node_type}\n" + "\n".join(ctx_parts)
-
-        payload = {**DEFAULT_PAYLOADS.get(agent_id, {"action": "run"}),
-                   "task": node_desc,
-                   "workflow_context": workflow_ctx[:1000]}
-
-        live_data, svc_id = hub_resolve_live_data(agent_id, member_id, payload=payload)
-        
-        real_ctx = ""
-        if live_data:
-            if progress_cb: progress_cb(f"🔌 Connected to {svc_id.upper()} (LIVE)")
-            real_ctx = f"\n\n[REAL LIVE DATA FROM {svc_id.upper()}]\n{json.dumps(live_data, indent=2)[:800]}"
-        else:
-            if progress_cb: progress_cb(f"🤖 {agent_id.upper()} (SIM)")
-            
-        try:
-            if api_key:
-                if progress_cb: progress_cb(f"🧠 {agent_id.upper()} is thinking...")
-                result = call_groq(api_key, agent_id, payload, 
-                                 extra_context=f"Context:\n{workflow_ctx}{real_ctx}")
-                if live_data: result["_meta_live"] = True
-                tokens = result.get("_meta", {}).get("tokens", 0)
-                total_tokens += tokens
-                if progress_cb: progress_cb(f"✅ {node_type} complete")
-            else:
-                result = {"status": "simulated", "node": node_type, "data": {"items": [1,2,3]}}
-                if progress_cb: progress_cb(f"📦 {node_type} (Simulation) complete")
-            
-            outputs[node["id"]] = result
-            nodes_done += 1
-        except Exception as e:
-            if progress_cb: progress_cb(f"❌ Failed: {str(e)[:40]}")
-            outputs[node.get("id","err")] = {"error": str(e)}
-            nodes_failed += 1
-            errors.append(f"{node_type}: {str(e)}")
-
-    # Fix: avoid ZeroDivisionError and correctly handle 0-node edge case
-    if len(ordered_nodes) == 0:
-        status = "success"
-    elif nodes_failed == len(ordered_nodes):
-        status = "failed"
-    elif nodes_failed > 0:
-        status = "partial"
-    else:
-        status = "success"
-    n8n_save_run(run_id, workflow["id"], workflow["name"], status, trigger,
-                 len(ordered_nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
-    return run_id, status, outputs, total_tokens
-
-def n8n_create_workflow(name, description, trigger_type, nodes_raw):
-    wf_id = "wf-" + str(uuid.uuid4())[:8]
-    with db() as c:
-        c.execute("INSERT INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
-                  (wf_id, name, description, trigger_type, json.dumps(nodes_raw)))
-    return wf_id
-
-def n8n_toggle_workflow(wf_id, active):
-    with db() as c:
-        c.execute("UPDATE n8n_workflows SET active=? WHERE id=?", (int(active), wf_id))
-
-def n8n_delete_workflow(wf_id):
-    with db() as c:
-        c.execute("DELETE FROM n8n_workflows WHERE id=?", (wf_id,))
-        c.execute("DELETE FROM n8n_runs WHERE workflow_id=?", (wf_id,))
-
-# ─────────────────────────────────────────────────────────────────────────────
 
 def db_execute(query: str, params: tuple = ()) -> list:
     """Convenience wrapper: execute a SELECT and return list of dicts."""
@@ -2220,78 +1958,6 @@ Return ONLY valid JSON:
   "at_risk_deals": [".."],
   "integration_status": "real_api|simulated"
 }""",
-
-# ─── Google AI Agents ──────────────────────────────────────────────────────────
-"gemini-ai-agent": """You are Google Gemini AI, the most capable multimodal AI in the world.
-Perform deep reasoning, synthesis, and strategic analysis on the given task.
-Return ONLY valid JSON:
-{
-  "action": "..",
-  "model_used": "gemini-1.5-pro",
-  "reasoning_depth": "deep",
-  "analysis": "..",
-  "key_insights": ["..","..",".."],
-  "strategic_recommendations": ["..","..",".."],
-  "confidence_score": 0.95,
-  "multimodal_capabilities_used": ["text","reasoning","synthesis"],
-  "executive_summary": "..",
-  "follow_up_questions": ["..",".."],
-  "integration_status": "real_api|simulated"
-}""",
-
-"google-search-agent": """You are a Google Search Intelligence Agent with real-time web access.
-Search the web for the most relevant, current information on the given topic.
-Return ONLY valid JSON:
-{
-  "action": "web_search",
-  "query": "..",
-  "results_count": 10,
-  "results": [{"title":"..","url":"..","snippet":"..","relevance_score":0.95,"published_date":".."}],
-  "top_sources": ["..","..",".."],
-  "key_findings": ["..","..",".."],
-  "market_signals": [".."],
-  "competitive_intel": [".."],
-  "news_summary": "..",
-  "search_timestamp": "..",
-  "integration_status": "real_api|simulated"
-}""",
-
-"vertex-ai-agent": """You are a Google Vertex AI Analytics Agent with access to ML pipelines and enterprise AI infrastructure.
-Analyse AI/ML workloads, model performance, and cloud AI resource utilisation.
-Return ONLY valid JSON:
-{
-  "action": "ml_pipeline_analysis",
-  "project": "..",
-  "models_deployed": [{"name":"..","version":"..","accuracy":0.97,"latency_ms":42,"requests_per_day":1250}],
-  "pipeline_health": "healthy|degraded|critical",
-  "batch_jobs_running": 3,
-  "batch_jobs_completed_today": 12,
-  "gpu_utilisation_pct": 67,
-  "cost_usd_today": 24.50,
-  "anomalies_detected": [".."],
-  "optimisation_recommendations": ["..",".."],
-  "auto_ml_experiments": [{"name":"..","status":"running|complete","best_accuracy":0.94}],
-  "integration_status": "real_api|simulated"
-}""",
-
-"google-sheets-agent": """You are a Google Sheets Live Data Agent with read/write access to enterprise spreadsheets.
-Fetch live KPI data, run AI analysis, and generate trend reports.
-Return ONLY valid JSON:
-{
-  "action": "live_data_fetch",
-  "spreadsheet_name": "..",
-  "spreadsheet_id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
-  "sheets_read": ["..",".."],
-  "rows_fetched": 250,
-  "columns": ["..","..",".."],
-  "kpi_snapshot": {"revenue_mtd":125430,"target":150000,"variance_pct":-16.4,"trend":"improving"},
-  "anomalies": [".."],
-  "ai_insights": ["..","..",".."],
-  "chart_generated": true,
-  "export_url": "https://docs.google.com/spreadsheets/d/demo_id/edit",
-  "last_updated": "..",
-  "integration_status": "real_api|simulated"
-}""",
 }
 
 # UPGRADED RESEARCH-GRADE PROMPTS
@@ -2429,14 +2095,10 @@ def call_groq(api_key: str, agent_name: str, payload: dict, extra_context: str =
             stream=True
         )
         for chunk in stream:
-            try:
-                if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        full_resp += content
-                        stream_placeholder.markdown(f"**{agent_name.upper()} LOG:**\n{full_resp}")
-            except (AttributeError, IndexError):
-                continue
+            content = chunk.choices[0].delta.content
+            if content:
+                full_resp += content
+                stream_placeholder.markdown(f"**{agent_name.upper()} LOG:**\n{full_resp}")
         raw = full_resp.strip()
         tokens_in, tokens_out = 1000, len(raw.split())  # Approximation for stream
     else:
@@ -8259,8 +7921,7 @@ making automation outputs specific to YOUR organisation instead of generic AI re
 
 def build_omega_html(groq_key: str) -> str:
     """Load omega_agent.html and inject the Groq API key at runtime."""
-    _base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(_base, "omega_agent.html")
+    path = "omega_agent.html"
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -8279,8 +7940,7 @@ def build_omega_html(groq_key: str) -> str:
 
 def build_n8n_html(groq_key: str) -> str:
     """Load n8n_platform.html and inject the Groq API key at runtime."""
-    _base = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(_base, "n8n_platform.html")
+    path = "n8n_platform.html"
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -8319,18 +7979,7 @@ if page == "omega_agent":
     st.title("Ω Omega Agent — 80+ Capability Collective")
     groq_from_sidebar = api_key or ""
     omega_html = build_omega_html(groq_from_sidebar)
-    
-    if omega_html.startswith("<h3"):
-        st.error("Static HTML not found. Fallback mode active.")
-        st.info("The Omega Agent React UI could not be loaded. Please ensure `omega_agent.html` is in the same directory.")
-        # Fallback native UI
-        g_goal = st.text_area("Research Goal for Omega Agent")
-        if st.button("Run Omega Analysis (Fallback)") and g_goal and groq_from_sidebar:
-            with st.spinner("Omega agent simulating research..."):
-                res = run_agent_task(groq_from_sidebar, "synthesizer", {"action": "omega_analysis", "goal": g_goal})
-                st.json(res)
-    else:
-        components.html(omega_html, height=950, scrolling=True)
+    components.html(omega_html, height=950, scrolling=True)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -8339,6 +7988,255 @@ if page == "omega_agent":
 
 # ─── n8n DB helpers ────────────────────────────────────────────────────────────
 
+def init_n8n_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS n8n_workflows (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            trigger_type TEXT DEFAULT 'manual',
+            nodes       TEXT DEFAULT '[]',
+            edges       TEXT DEFAULT '[]',
+            active      INTEGER DEFAULT 1,
+            run_count   INTEGER DEFAULT 0,
+            last_run    TEXT DEFAULT '',
+            created_at  TEXT DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS n8n_runs (
+            id           TEXT PRIMARY KEY,
+            workflow_id  TEXT NOT NULL,
+            workflow_name TEXT NOT NULL,
+            status       TEXT DEFAULT 'pending',
+            trigger      TEXT DEFAULT 'manual',
+            nodes_total  INTEGER DEFAULT 0,
+            nodes_done   INTEGER DEFAULT 0,
+            nodes_failed INTEGER DEFAULT 0,
+            output       TEXT DEFAULT '{}',
+            error        TEXT DEFAULT '',
+            tokens_used  INTEGER DEFAULT 0,
+            started_at   TEXT DEFAULT (datetime('now')),
+            finished_at  TEXT DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS n8n_credentials (
+            id       TEXT PRIMARY KEY,
+            name     TEXT NOT NULL,
+            type     TEXT NOT NULL,
+            data     TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_n8n_runs_wf ON n8n_runs(workflow_id);
+        CREATE INDEX IF NOT EXISTS idx_n8n_runs_status ON n8n_runs(status);
+        """)
+        # Seed example workflows
+        example_wfs = [
+            ("wf-001", "📧 Email Digest & Summariser",
+             "Fetch unread Gmail → summarise with AI → post to Slack channel",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Gmail Trigger","icon":"📧","desc":"Fetch last 10 unread emails","agent":"gmail-summary"},
+                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Summarise emails with LLM","agent":"synthesizer"},
+                 {"id":"n3","type":"Slack Post","icon":"💬","desc":"Post digest to #general","agent":"slack-agent"},
+             ])),
+            ("wf-002", "🐙 GitHub PR Review Bot",
+             "On new PR → AI code review → post review comment → create Jira ticket",
+             "webhook",
+             json.dumps([
+                 {"id":"n1","type":"GitHub Webhook","icon":"🐙","desc":"Trigger on new pull request","agent":"github-agent"},
+                 {"id":"n2","type":"AI Code Review","icon":"🤖","desc":"Analyse PR diff with AI","agent":"synthesizer"},
+                 {"id":"n3","type":"Post Comment","icon":"💬","desc":"Post review to GitHub PR","agent":"github-agent"},
+                 {"id":"n4","type":"Create Jira Ticket","icon":"🎯","desc":"Open tracking ticket in Jira","agent":"jira-agent"},
+             ])),
+            ("wf-003", "📊 Weekly KPI Report",
+             "Pull Sheets data → AI analysis → create Notion report → email to team",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Sheets Read","icon":"📊","desc":"Pull KPI data from Google Sheets","agent":"sheets-agent"},
+                 {"id":"n2","type":"AI Analyst","icon":"🤖","desc":"Analyse trends and anomalies","agent":"synthesizer"},
+                 {"id":"n3","type":"Notion Page","icon":"📝","desc":"Create weekly report page","agent":"notion-agent"},
+                 {"id":"n4","type":"Gmail Send","icon":"📧","desc":"Email report link to team","agent":"gmail-summary"},
+             ])),
+            ("wf-004", "🏢 New Lead Onboarding",
+             "HubSpot new contact → enrich with web research → create Drive folder → schedule intro call",
+             "webhook",
+             json.dumps([
+                 {"id":"n1","type":"HubSpot Trigger","icon":"🏢","desc":"New contact created in HubSpot","agent":"hubspot-agent"},
+                 {"id":"n2","type":"Web Enrichment","icon":"🌐","desc":"Research lead company & role","agent":"web-scraper"},
+                 {"id":"n3","type":"Drive Folder","icon":"📁","desc":"Create onboarding folder","agent":"drive-manager"},
+                 {"id":"n4","type":"Calendar Event","icon":"📅","desc":"Schedule intro call","agent":"calendar-manager"},
+                 {"id":"n5","type":"Update CRM","icon":"🏢","desc":"Update HubSpot with enriched data","agent":"hubspot-agent"},
+             ])),
+            ("wf-005", "🔍 Competitive Intelligence",
+             "Scrape competitor sites → AI summarise → store in Airtable → Slack alert",
+             "schedule",
+             json.dumps([
+                 {"id":"n1","type":"Web Scraper","icon":"🌐","desc":"Scrape competitor websites","agent":"web-scraper"},
+                 {"id":"n2","type":"AI Summariser","icon":"🤖","desc":"Extract key insights with AI","agent":"synthesizer"},
+                 {"id":"n3","type":"Airtable Write","icon":"🗃️","desc":"Store intelligence in Airtable","agent":"airtable-agent"},
+                 {"id":"n4","type":"Slack Alert","icon":"💬","desc":"Post key findings to #strategy","agent":"slack-agent"},
+             ])),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
+            example_wfs
+        )
+
+init_n8n_db()
+
+def n8n_get_workflows():
+    with db() as c:
+        rows = c.execute("SELECT * FROM n8n_workflows ORDER BY created_at").fetchall()
+    return [dict(r) for r in rows]
+
+def n8n_get_runs(workflow_id=None, limit=50):
+    with db() as c:
+        if workflow_id:
+            rows = c.execute("SELECT * FROM n8n_runs WHERE workflow_id=? ORDER BY started_at DESC LIMIT ?", (workflow_id, limit)).fetchall()
+        else:
+            rows = c.execute("SELECT * FROM n8n_runs ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+def n8n_save_run(run_id, workflow_id, workflow_name, status, trigger, nodes_total,
+                 nodes_done, nodes_failed, output, error, tokens):
+    # Fix: partial runs also get a finished_at timestamp so Run History sorts correctly
+    finished = datetime.datetime.now().isoformat() if status in ("success", "failed", "partial") else ""
+    with db() as c:
+        c.execute("""INSERT OR REPLACE INTO n8n_runs
+            (id,workflow_id,workflow_name,status,trigger,nodes_total,nodes_done,nodes_failed,output,error,tokens_used,finished_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (run_id, workflow_id, workflow_name, status, trigger, nodes_total,
+             nodes_done, nodes_failed, json.dumps(output) if isinstance(output, dict) else output,
+             error, tokens, finished))
+        c.execute("UPDATE n8n_workflows SET run_count=run_count+1, last_run=datetime('now') WHERE id=?", (workflow_id,))
+
+def n8n_run_workflow(api_key, workflow, trigger="manual", progress_cb=None):
+    """Execute a workflow node-by-node using Groq agents with real-time logging."""
+    run_id = str(uuid.uuid4())
+    nodes_list = json.loads(workflow.get("nodes", "[]"))
+    edges_list = json.loads(workflow.get("edges", "[]"))
+    outputs = {}
+    total_tokens = 0
+    nodes_done = 0
+    nodes_failed = 0
+    errors = []
+
+    # Simple topological sort for Python
+    def get_execution_order(nodes, edges):
+        """Kahn's algorithm (BFS topological sort) — correct and cycle-safe."""
+        from collections import deque
+        node_map = {n["id"]: n for n in nodes if "id" in n}
+        # Build adjacency and in-degree
+        adj = {nid: [] for nid in node_map}
+        in_deg = {nid: 0 for nid in node_map}
+        for edge in edges:
+            src, dst = edge.get("from", ""), edge.get("to", "")
+            if src in adj and dst in in_deg:
+                adj[src].append(dst)
+                in_deg[dst] += 1
+        # Start with nodes that have no incoming edges
+        queue = deque([nid for nid, deg in in_deg.items() if deg == 0])
+        order = []
+        while queue:
+            nid = queue.popleft()
+            if nid in node_map:
+                order.append(node_map[nid])
+            for nxt in adj.get(nid, []):
+                in_deg[nxt] -= 1
+                if in_deg[nxt] == 0:
+                    queue.append(nxt)
+        # If cycle detected (not all nodes processed), fall back to original order
+        if len(order) < len(node_map):
+            return [node_map[nid] for nid in node_map]
+        return order
+
+    ordered_nodes = get_execution_order(nodes_list, edges_list)
+
+    for node in ordered_nodes:
+        # Map agent ID to key if it's the node type (e.g. Gmail Agent -> gmail-summary)
+        agent_id = node.get("agent") or node.get("type", "").lower().replace(" agent","").replace(" ","-")
+        if agent_id == "trigger": continue
+        
+        node_desc = node.get("desc", node.get("label", ""))
+        node_type = node.get("type", "Agent")
+        
+        if progress_cb: progress_cb(f"🚀 Initialising node: {node_type}...")
+        
+        # Check for real live data — use .get() safely, won't crash if called outside Streamlit context
+        try:
+            member_id = st.session_state.get("hub_member", {}).get("id", "hub-admin-1")
+        except Exception:
+            member_id = "hub-admin-1"
+        
+        # Build context from previous outputs
+        ctx_parts = []
+        for pid, pval in outputs.items():
+            ctx_parts.append(f"Node {pid} Output: {json.dumps(pval)[:200]}...")
+        workflow_ctx = f"WF: {workflow['name']} | Node: {node_type}\n" + "\n".join(ctx_parts)
+
+        payload = {**DEFAULT_PAYLOADS.get(agent_id, {"action": "run"}),
+                   "task": node_desc,
+                   "workflow_context": workflow_ctx[:1000]}
+
+        live_data, svc_id = hub_resolve_live_data(agent_id, member_id, payload=payload)
+        
+        real_ctx = ""
+        if live_data:
+            if progress_cb: progress_cb(f"🔌 Connected to {svc_id.upper()} (LIVE)")
+            real_ctx = f"\n\n[REAL LIVE DATA FROM {svc_id.upper()}]\n{json.dumps(live_data, indent=2)[:800]}"
+        else:
+            if progress_cb: progress_cb(f"🤖 {agent_id.upper()} (SIM)")
+            
+        try:
+            if api_key:
+                if progress_cb: progress_cb(f"🧠 {agent_id.upper()} is thinking...")
+                result = call_groq(api_key, agent_id, payload, 
+                                 extra_context=f"Context:\n{workflow_ctx}{real_ctx}")
+                if live_data: result["_meta_live"] = True
+                tokens = result.get("_meta", {}).get("tokens", 0)
+                total_tokens += tokens
+                if progress_cb: progress_cb(f"✅ {node_type} complete")
+            else:
+                result = {"status": "simulated", "node": node_type, "data": {"items": [1,2,3]}}
+                if progress_cb: progress_cb(f"📦 {node_type} (Simulation) complete")
+            
+            outputs[node["id"]] = result
+            nodes_done += 1
+        except Exception as e:
+            if progress_cb: progress_cb(f"❌ Failed: {str(e)[:40]}")
+            outputs[node.get("id","err")] = {"error": str(e)}
+            nodes_failed += 1
+            errors.append(f"{node_type}: {str(e)}")
+
+    # Fix: avoid ZeroDivisionError and correctly handle 0-node edge case
+    if len(ordered_nodes) == 0:
+        status = "success"
+    elif nodes_failed == len(ordered_nodes):
+        status = "failed"
+    elif nodes_failed > 0:
+        status = "partial"
+    else:
+        status = "success"
+    n8n_save_run(run_id, workflow["id"], workflow["name"], status, trigger,
+                 len(ordered_nodes), nodes_done, nodes_failed, outputs, "; ".join(errors), total_tokens)
+    return run_id, status, outputs, total_tokens
+
+def n8n_create_workflow(name, description, trigger_type, nodes_raw):
+    wf_id = "wf-" + str(uuid.uuid4())[:8]
+    with db() as c:
+        c.execute("INSERT INTO n8n_workflows (id,name,description,trigger_type,nodes) VALUES (?,?,?,?,?)",
+                  (wf_id, name, description, trigger_type, json.dumps(nodes_raw)))
+    return wf_id
+
+def n8n_toggle_workflow(wf_id, active):
+    with db() as c:
+        c.execute("UPDATE n8n_workflows SET active=? WHERE id=?", (int(active), wf_id))
+
+def n8n_delete_workflow(wf_id):
+    with db() as c:
+        c.execute("DELETE FROM n8n_workflows WHERE id=?", (wf_id,))
+        c.execute("DELETE FROM n8n_runs WHERE workflow_id=?", (wf_id,))
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 if page == "n8n_simulation":
     st.markdown(
@@ -9585,7 +9483,7 @@ def feed_post(source: str, event_type: str, actor: str, summary: str, detail: di
 def feed_get(limit: int = 50, source_filter: str = ""):
     with db() as c:
         if source_filter:
-            rows = c.execute("SELECT * FROM global_activity_feed WHERE LOWER(source)=LOWER(?) ORDER BY created_at DESC LIMIT ?", (source_filter, limit)).fetchall()
+            rows = c.execute("SELECT * FROM global_activity_feed WHERE source=? ORDER BY created_at DESC LIMIT ?", (source_filter, limit)).fetchall()
         else:
             rows = c.execute("SELECT * FROM global_activity_feed ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
     return [dict(r) for r in rows]
