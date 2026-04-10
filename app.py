@@ -46,14 +46,6 @@ import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-# ─── Page config (MUST be first) ──────────────────────────────────────────────
-st.set_page_config(
-    page_title="SAAP v5.6 — Autonomous Agent Platform",
-    page_icon="🏢",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 # ─── Session State Initialization ─────────────────────────────────────────────
 def init_all_session_state():
     if "hub_logged_in" not in st.session_state:
@@ -169,7 +161,7 @@ st.markdown("""
 
     .stApp::after {
         content: "";
-        position: fixed; inset: 0; pointer-events: none; z-index: 10;
+        position: fixed; inset: 0; pointer-events: none; z-index: 9999;
         box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
     }
 
@@ -177,8 +169,6 @@ st.markdown("""
         background: linear-gradient(180deg, rgba(6,12,24,0.98) 0%, rgba(3,5,13,0.99) 100%);
         border-right: 1px solid var(--border);
         backdrop-filter: blur(20px);
-        z-index: 1000 !important;
-        min-width: 280px !important;
     }
     .stSidebar::before {
         content: "";
